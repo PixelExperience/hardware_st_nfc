@@ -51,6 +51,7 @@ static int cmdPipe[2] = {0, 0};
 
 static struct pollfd event_table[2];
 static pthread_t threadHandle = (pthread_t)NULL;
+pthread_mutex_t i2ctransport_mtx = PTHREAD_MUTEX_INITIALIZER;
 
 /**************************************************************************************************
  *
@@ -219,6 +220,7 @@ bool I2cOpenLayer(void* dev, HAL_CALLBACK callb, HALHANDLE* pHandle)
     int i = 0;
     uint32_t NoDbgFlag = HAL_FLAG_DEBUG;
 
+      (void) pthread_mutex_lock(&i2ctransport_mtx);
     fidI2c = open("/dev/st21nfc", O_RDWR);
     if (fidI2c < 0) {
         STLOG_HAL_W("unable to open /dev/st21nfc\n");
@@ -240,6 +242,8 @@ bool I2cOpenLayer(void* dev, HAL_CALLBACK callb, HALHANDLE* pHandle)
         return false;
     }
 
+      (void) pthread_mutex_unlock(&i2ctransport_mtx);
+
     return (pthread_create(&threadHandle, NULL, I2cWorkerThread, *pHandle) == 0);
 }
 
@@ -252,6 +256,8 @@ void I2cCloseLayer()
     int ret, tret;
     ALOGD("%s: enter\n", __func__);
 
+    (void)pthread_mutex_lock(&i2ctransport_mtx);
+
     if (threadHandle == (pthread_t)NULL)
         return;
 
@@ -262,6 +268,7 @@ void I2cCloseLayer()
         ALOGE("%s: failed to wait for thread (%d)", __func__, ret);
     }
     threadHandle = (pthread_t)NULL;
+    (void)pthread_mutex_unlock(&i2ctransport_mtx);
 }
 /**************************************************************************************************
  *
