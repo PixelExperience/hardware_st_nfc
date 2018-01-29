@@ -57,7 +57,7 @@ extern bool hal_wrapper_open(st21nfc_dev_t* dev, nfc_stack_callback_t* p_cback,
                              nfc_stack_data_callback_t* p_data_cback,
                              HALHANDLE* pHandle);
 
-extern int hal_wrapper_close(st21nfc_dev_t* dev, int call_cb);
+extern int hal_wrapper_close(int call_cb);
 
 static int hal_open(const struct nfc_nci_device* p_dev,
                     nfc_stack_callback_t* p_cback,
@@ -69,7 +69,7 @@ static int hal_open(const struct nfc_nci_device* p_dev,
   (void)pthread_mutex_lock(&hal_mtx);
   st21nfc_dev_t* dev = (st21nfc_dev_t*)p_dev;
   if (! hal_is_closed ) {
-    hal_wrapper_close(dev, 0);
+    hal_wrapper_close(0);
   }
   dev->p_cback = p_cback;
   dev->p_data_cback = p_data_cback;
@@ -143,7 +143,7 @@ static int hal_close(const struct nfc_nci_device* p_dev) {
     (void)pthread_mutex_unlock(&hal_mtx);
     return 1;
   }
-  if (hal_wrapper_close(dev, 1) == 0) {
+  if (hal_wrapper_close(1) == 0) {
     hal_is_closed = 1;
     (void)pthread_mutex_unlock(&hal_mtx);
     return 1;

@@ -79,7 +79,7 @@ bool hal_wrapper_open(st21nfc_dev_t* dev, nfc_stack_callback_t* p_cback,
   return 1;
 }
 
-int hal_wrapper_close(st21nfc_dev_t* dev, int call_cb) {
+int hal_wrapper_close(int call_cb) {
 
   STLOG_HAL_D("%s", __func__);
 
