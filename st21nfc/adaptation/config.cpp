@@ -26,10 +26,12 @@
 #include <vector>
 #include <utils/Log.h>
 #include "android_logmsg.h"
-
+#include <sys/stat.h>
 const char alternative_config_path[] = "";
-const char transport_config_path[] = "/system/vendor/etc/";
+const char* transport_config_paths[] = {"/odm/etc/", "/vendor/etc/", "/etc/"};
 
+const int transport_config_path_size =
+    (sizeof(transport_config_paths) / sizeof(transport_config_paths[0]));
 #define config_name "libnfc-st.conf"
 #define extra_config_base "libnfc-st-"
 #define extra_config_ext ".conf"
@@ -129,6 +131,29 @@ inline int getDigitValue(char c, int base) {
       return c - 'a' + 10;
   }
   return 0;
+}
+
+/*******************************************************************************
+**
+** Function:    findConfigFile()
+**
+** Description: find config file among transport_config_paths**
+**
+** Returns:     none
+**
+*******************************************************************************/
+void findConfigFile(const string& configName,
+                                                string& filePath) {
+  for (int i = 0; i < transport_config_path_size - 1; i++) {
+    filePath.assign(transport_config_paths[i]);
+    filePath += configName;
+    struct stat file_stat;
+    if (stat(filePath.c_str(), &file_stat) == 0 && S_ISREG(file_stat.st_mode)) {
+      return;
+    }
+  }
+  filePath.assign(transport_config_paths[transport_config_path_size - 1]);
+  filePath += configName;
 }
 
 /*******************************************************************************
@@ -344,8 +369,7 @@ CNfcConfig& CNfcConfig::GetInstance() {
         return theInstance;
       }
     }
-    strPath.assign(transport_config_path);
-    strPath += config_name;
+    findConfigFile(config_name, strPath);
     theInstance.readConfig(strPath.c_str(), true);
   }
 
@@ -364,7 +388,7 @@ CNfcConfig& CNfcConfig::GetInstance() {
 *******************************************************************************/
 bool CNfcConfig::getValue(const char* name, char* pValue, size_t& len) const {
   const CNfcParam* pParam = find(name);
-  if (pParam == NULL) return false;
+  if (pParam == NULL || pValue== NULL) return false;
 
   if (pParam->str_len() > 0) {
     memset(pValue, 0, len);
@@ -649,12 +673,16 @@ extern void resetConfig() {
 *******************************************************************************/
 void readOptionalConfig(const char* extra) {
   string strPath;
-  strPath.assign(transport_config_path);
-  if (alternative_config_path[0] != '\0')
-    strPath.assign(alternative_config_path);
+  string configName(extra_config_base);
+  configName += extra;
+  configName += extra_config_ext;
 
-  strPath += extra_config_base;
-  strPath += extra;
-  strPath += extra_config_ext;
+  if (alternative_config_path[0] != '\0') {
+    strPath.assign(alternative_config_path);
+    strPath += configName;
+  } else {
+    findConfigFile(configName, strPath);
+  }
+
   CNfcConfig::GetInstance().readConfig(strPath.c_str(), false);
 }
