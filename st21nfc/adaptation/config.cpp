@@ -234,6 +234,7 @@ bool CNfcConfig::readConfig(const char* name, bool bResetContent) {
           state = NUM_VALUE;
           base = 10;
           numValue = getDigitValue(c, base);
+          i=0;
           break;
         } else if (c != '\n' && c != '\r') {
           state = END_LINE;
@@ -579,8 +580,7 @@ extern "C" int GetStrValue(const char* name, char* pValue, unsigned long l) {
   size_t len = l;
   CNfcConfig& rConfig = CNfcConfig::GetInstance();
 
-  bool b = rConfig.getValue(name, pValue, len);
-  return b ? len : 0;
+  return rConfig.getValue(name, pValue, len);
 }
 
 /*******************************************************************************

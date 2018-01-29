@@ -28,7 +28,6 @@ extern void HalCoreCallback(void* context, uint32_t event, const void* d,
                             size_t length);
 extern bool I2cOpenLayer(void* dev, HAL_CALLBACK callb, HALHANDLE* pHandle);
 extern void I2cCloseLayer();
-extern int I2cWriteCmd(const uint8_t* x, size_t len);
 
 typedef struct {
   struct nfc_nci_device nci_device;  // nci_device must be first struct member
@@ -95,7 +94,6 @@ int hal_wrapper_close(st21nfc_dev_t* dev, int call_cb) {
 void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
   uint8_t propNfcModeSetCmdOn[] = {0x2f, 0x02, 0x02, 0x02, 0x01};
   uint8_t coreInitCmd[] = {0x20, 0x01, 0x02, 0x00, 0x00};
-  uint8_t cmd = 'X';
 
   STLOG_HAL_D("%s - mHalWrapperState = %d", __func__, mHalWrapperState);
 
@@ -161,9 +159,7 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
 }
 
 static void halWrapperCallback(uint8_t event, uint8_t event_status) {
-  uint8_t propNfcModeSetCmdOn[] = {0x2f, 0x02, 0x02, 0x02, 0x01};
   uint8_t coreInitCmd[] = {0x20, 0x01, 0x02, 0x00, 0x00};
-  uint8_t cmd = 'X';
 
   switch (mHalWrapperState) {
     case HAL_WRAPPER_STATE_CLOSED:

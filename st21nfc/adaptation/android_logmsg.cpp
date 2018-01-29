@@ -23,11 +23,6 @@
 #define MAX_LOGCAT_LINE 4096
 static char log_line[MAX_LOGCAT_LINE];
 static const char* sTable = "0123456789abcdef";
-static void ToHex(const uint8_t* data, uint16_t len, char* hexString,
-                  uint16_t hexStringSize);
-static inline void word2hex(const char* data, char** hex);
-static inline void byte2char(const char* data, char** str);
-static inline void byte2hex(const char* data, char** str);
 void DispHal(const char* title, const void* data, size_t length);
 unsigned char hal_trace_level = STNFC_TRACE_LEVEL_DEBUG;
 
@@ -67,37 +62,6 @@ unsigned char InitializeSTLogLevel() {
   STLOG_HAL_D("%s: level=%u", __func__, hal_trace_level);
   return hal_trace_level;
 }
-
-
-void ToHex(const uint8_t* data, uint16_t len, char* hexString,
-           uint16_t hexStringSize) {
-  int i = 0, j = 0;
-  for (i = 0, j = 0; i < len && j < hexStringSize - 3; i++) {
-    hexString[j++] = sTable[(*data >> 4) & 0xf];
-    hexString[j++] = sTable[*data & 0xf];
-    data++;
-  }
-  hexString[j] = '\0';
-}
-
-
-inline void word2hex(const char* data, char** hex) {
-  byte2hex(&data[1], hex);
-  byte2hex(&data[0], hex);
-}
-
-inline void byte2char(const char* data, char** str) {
-  **str = *data < ' ' ? '.' : *data > '~' ? '.' : *data;
-  ++(*str);
-}
-
-inline void byte2hex(const char* data, char** str) {
-  **str = sTable[(*data >> 4) & 0xf];
-  ++*str;
-  **str = sTable[*data & 0xf];
-  ++*str;
-}
-
 
 void DispHal(const char* title, const void* data, size_t length) {
   uint8_t* d = (uint8_t*)data;

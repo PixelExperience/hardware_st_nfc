@@ -31,8 +31,7 @@
 extern void HalCoreCallback(void* context, uint32_t event, const void* d,
                             size_t length);
 extern bool I2cOpenLayer(void* dev, HAL_CALLBACK callb, HALHANDLE* pHandle);
-extern int I2cWriteCmd(const uint8_t* x, size_t len);
-extern int GetNumValue(const char* name, void* p_value, unsigned long len);
+
 
 typedef struct {
   struct nfc_nci_device nci_device;  // nci_device must be first struct member
@@ -137,7 +136,6 @@ static int hal_close(const struct nfc_nci_device* p_dev) {
   STLOG_HAL_D("NFC-NCI HAL: %s", __func__);
 
   st21nfc_dev_t* dev = (st21nfc_dev_t*)p_dev;
-  uint8_t cmd = 'X';
 
   /* check if HAL is closed */
   (void)pthread_mutex_lock(&hal_mtx);
@@ -197,8 +195,6 @@ static int nfc_close(hw_device_t* dev) {
 
 static int nfc_open(const hw_module_t* module, const char* name,
                     hw_device_t** device) {
-  unsigned long num = 0;
-  char valueStr[PROPERTY_VALUE_MAX] = {0};
 
   if (strcmp(name, NFC_NCI_CONTROLLER) == 0) {
     st21nfc_dev_t* dev = calloc(1, sizeof(st21nfc_dev_t));

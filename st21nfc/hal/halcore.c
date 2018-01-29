@@ -26,7 +26,6 @@
 #include <string.h>
 
 extern int I2cWriteCmd(const uint8_t* x, size_t len);
-extern int GetStrValue(const char* name, char* p_value, unsigned long len);
 extern void DispHal(const char* title, const void* data, size_t length);
 
 extern uint32_t ScrProtocolTraceFlag;  // = SCR_PROTO_TRACE_ALL;
@@ -347,7 +346,6 @@ bool HalSendDownstreamStopTimer(HALHANDLE hHAL)
 {
     // Send an NCI frame downstream. will
     HalInstance* inst = (HalInstance*)hHAL;
-    ThreadMesssage msg;
 
     HalStopTimer(inst);
     return 1;
