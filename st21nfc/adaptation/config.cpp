@@ -86,9 +86,9 @@ class CNfcConfig : public vector<const CNfcParam*> {
 **
 ** Function:    isPrintable()
 **
-** Description: detremine if a char is printable
+** Description: determine if 'c' is printable
 **
-** Returns:     none
+** Returns:     1, if printable, otherwise 0
 **
 *******************************************************************************/
 inline bool isPrintable(char c) {
@@ -100,9 +100,9 @@ inline bool isPrintable(char c) {
 **
 ** Function:    isDigit()
 **
-** Description: detremine if a char is numeral digit
+** Description: determine if 'c' is numeral digit
 **
-** Returns:     none
+** Returns:     true, if numerical digit
 **
 *******************************************************************************/
 inline bool isDigit(char c, int base) {
@@ -117,9 +117,9 @@ inline bool isDigit(char c, int base) {
 **
 ** Function:    getDigitValue()
 **
-** Description: return numercal value of a char
+** Description: return numerical value of a decimal or hex char
 **
-** Returns:     none
+** Returns:     numerical value if decimal or hex char, otherwise 0
 **
 *******************************************************************************/
 inline int getDigitValue(char c, int base) {
@@ -163,7 +163,7 @@ void findConfigFile(const string& configName,
 ** Description: read Config settings and parse them into a linked list
 **              move the element from linked list to a array at the end
 **
-** Returns:     none
+** Returns:     1, if there are any config data, 0 otherwise
 **
 *******************************************************************************/
 bool CNfcConfig::readConfig(const char* name, bool bResetContent) {
@@ -597,7 +597,7 @@ CNfcParam::CNfcParam(const char* name, unsigned long value)
 **
 ** Description: API function for getting a string value of a setting
 **
-** Returns:     none
+** Returns:     True if found, otherwise False.
 **
 *******************************************************************************/
 extern "C" int GetStrValue(const char* name, char* pValue, unsigned long l) {
@@ -613,7 +613,7 @@ extern "C" int GetStrValue(const char* name, char* pValue, unsigned long l) {
 **
 ** Description: API function for getting a numerical value of a setting
 **
-** Returns:     none
+** Returns:     True if found, otherwise False.
 **
 *******************************************************************************/
 extern "C" int GetNumValue(const char* name, void* pValue, unsigned long len) {

@@ -49,6 +49,7 @@ typedef struct {
 
 static void* HalWorkerThread(void* arg);
 static const char* HalEventName(HalEvent e);
+static inline int sem_wait_nointr(sem_t *sem);
 
 static void HalOnNewUpstreamFrame(HalInstance* inst, const uint8_t* data,
                                   size_t length);
@@ -99,7 +100,7 @@ void HalCoreCallback(void* context, uint32_t event, const void* d,
         case HAL_EVENT_DATAIND:
             STLOG_HAL_V("!! got event HAL_EVENT_DATAIND for %zu bytes\n", length);
 
-            if (data[2] != (length - 3)) {
+            if ((length >= 3) && (data[2] != (length - 3))) {
                 STLOG_HAL_W("length is illogical. Header length is %d, packet length %zu\n",
                       data[2], length);
             }
@@ -191,16 +192,6 @@ HALHANDLE HalCreate(void* context, HAL_CALLBACK callback, uint32_t flags)
     inst->ringWritePos = 0;
     inst->timeout = HAL_SLEEP_TIMER_DURATION;
 
-    // Spawn the thread
-    if (0 != pthread_create(&inst->thread, NULL, HalWorkerThread, inst)) {
-        STLOG_HAL_E("!failed to spawn workerthread \n");
-        sem_destroy(&inst->semaphore);
-        sem_destroy(&inst->bufferResourceSem);
-        sem_destroy(&inst->upstreamBlock);
-        free(inst);
-        return NULL;
-    }
-
     inst->bufferData = calloc(NUM_BUFFERS, sizeof(HalBuffer));
     if (!inst->bufferData) {
         STLOG_HAL_E("!failed to allocate memory\n");
@@ -219,7 +210,28 @@ HALHANDLE HalCreate(void* context, HAL_CALLBACK callback, uint32_t flags)
         inst->freeBufferList = b;
     }
 
-    pthread_mutex_init(&inst->hMutex, 0);
+    if (0 != pthread_mutex_init(&inst->hMutex, 0))
+      {
+        STLOG_HAL_E("!failed to initialize Mutex \n");
+        sem_destroy(&inst->semaphore);
+        sem_destroy(&inst->bufferResourceSem);
+        sem_destroy(&inst->upstreamBlock);
+        free(inst->bufferData);
+        free(inst);
+        return NULL;
+      }
+
+    // Spawn the thread
+    if (0 != pthread_create(&inst->thread, NULL, HalWorkerThread, inst)) {
+        STLOG_HAL_E("!failed to spawn workerthread \n");
+        sem_destroy(&inst->semaphore);
+        sem_destroy(&inst->bufferResourceSem);
+        sem_destroy(&inst->upstreamBlock);
+        pthread_mutex_destroy(&inst->hMutex);
+        free(inst->bufferData);
+        free(inst);
+        return NULL;
+    }
 
     STLOG_HAL_V("HalCreate exit\n");
     return (HALHANDLE)inst;
@@ -249,7 +261,7 @@ void HalDestroy(HALHANDLE hHAL)
     sem_destroy(&inst->semaphore);
     sem_destroy(&inst->upstreamBlock);
     sem_destroy(&inst->bufferResourceSem);
-    memset(inst, 0, sizeof(HalInstance));
+    pthread_mutex_destroy(&inst->hMutex);
 
     // Free resources
     free(inst->bufferData);
@@ -369,7 +381,7 @@ bool HalSendDownstreamStopTimer(HALHANDLE hHAL)
 
         if (HalEnqueueThreadMessage(inst, &msg)) {
             // Block until the protocol has taken a copy of the data
-            sem_wait(&inst->upstreamBlock);
+            sem_wait_nointr(&inst->upstreamBlock);
             return true;
         }
         return false;
@@ -426,7 +438,7 @@ static uint32_t HalCalcSemWaitingTime(HalInstance* inst, struct timespec* now)
 
         if (delta < 0) {
             // If we have a timer that has already expired, pick a zero wait time
-            delta = 0;
+            result = 0;
 
         } else if ((uint32_t)delta < result) {
             // Smaller time difference? If so take it
@@ -542,12 +554,12 @@ static bool HalEnqueueThreadMessage(HalInstance* inst, ThreadMesssage* msg)
  * Remove message pointer from stored ring buffer.
  * @param inst HAL instance
  * @param msg Message received
- * @return Always true
+ * @return true if there is a new message to pull, false otherwise.
  */
 static bool HalDequeueThreadMessage(HalInstance* inst, ThreadMesssage* msg)
 {
     int nextCmdIndex;
-
+    bool result = true;
     // New data available
     pthread_mutex_lock(&inst->hMutex);
 
@@ -557,15 +569,22 @@ static bool HalDequeueThreadMessage(HalInstance* inst, ThreadMesssage* msg)
     if (nextCmdIndex == HAL_QUEUE_MAX) {
         nextCmdIndex = 0;
     }
+     //check if ring buffer is empty
+    if (inst->ringReadPos == inst->ringWritePos)
+      {
+        STLOG_HAL_E("HAL thread message ring: already read last valid data");
+        result = false;
+      }
 
     // Get new element from ringbuffer
-    // *msg = inst->ring[nextCmdIndex];
+    if (result) {
     memcpy(msg, &(inst->ring[nextCmdIndex]), sizeof(ThreadMesssage));
     inst->ringReadPos = nextCmdIndex;
+    }
 
     pthread_mutex_unlock(&inst->hMutex);
 
-    return true;
+    return result;
 }
 
 /**************************************************************************************************
@@ -584,7 +603,7 @@ static HalBuffer* HalAllocBuffer(HalInstance* inst)
     HalBuffer* b;
 
     // Wait until we have a buffer resource
-    sem_wait(&inst->bufferResourceSem);
+    sem_wait_nointr(&inst->bufferResourceSem);
 
     pthread_mutex_lock(&inst->hMutex);
 
@@ -598,7 +617,7 @@ static HalBuffer* HalAllocBuffer(HalInstance* inst)
 
     if (!b) {
         STLOG_HAL_E(
-            "! unable to allocate buffer resource. This should be impossible. "
+            "! unable to allocate buffer resource."
             "check bufferResourceSem\n");
     }
 
@@ -808,7 +827,18 @@ static void* HalWorkerThread(void* arg)
  *                                     Misc. Functions
  *
  **************************************************************************************************/
+/**
+ *  helper to make sem_t interrupt safe
+ * @param sem_t  semaphore
+ * @return sem_wait return value.
+ */
 
+static inline int sem_wait_nointr(sem_t *sem) {
+  while (sem_wait(sem))
+    if (errno == EINTR) errno = 0;
+    else return -1;
+  return 0;
+}
 /**
  * Debugging helper to deliver event "String".
  * @param e  current event

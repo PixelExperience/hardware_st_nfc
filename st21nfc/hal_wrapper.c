@@ -122,7 +122,7 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
         // Send PROP_NFC_MODE_SET_CMD(ON)
         if (!HalSendDownstreamTimer(mHalHandle, propNfcModeSetCmdOn,
                                     sizeof(propNfcModeSetCmdOn), 100)) {
-          STLOG_HAL_E("NFC-NCI HAL: %s  SendDownstream failed", __func__);
+          STLOG_HAL_E("NFC-NCI HAL: %s  HalSendDownstreamTimer failed", __func__);
         }
         mHalWrapperState = HAL_WRAPPER_STATE_NFC_ENABLE_ON;
       } else {

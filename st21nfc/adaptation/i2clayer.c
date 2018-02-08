@@ -178,7 +178,6 @@ static void* I2cWorkerThread(void* arg)
                     uint8_t buffer[MAX_BUFFER_SIZE];
                     STLOG_HAL_V("received write command\n");
                     read(cmdPipe[0], &length, sizeof(length));
-                    assert(length <= MAX_BUFFER_SIZE);
                     read(cmdPipe[0], buffer, length);
                     i2cWrite(fidI2c, buffer, length);
                 }
