@@ -19,10 +19,6 @@
 #include "android_logmsg.h"
 #include "halcore.h"
 
-
-#define MAX_LOGCAT_LINE 4096
-static char log_line[MAX_LOGCAT_LINE];
-static const char* sTable = "0123456789abcdef";
 void DispHal(const char* title, const void* data, size_t length);
 unsigned char hal_trace_level = STNFC_TRACE_LEVEL_DEBUG;
 

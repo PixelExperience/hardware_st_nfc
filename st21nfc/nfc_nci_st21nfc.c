@@ -41,7 +41,7 @@ typedef struct {
   HALHANDLE hHAL;
 } st21nfc_dev_t;
 
-char* halVersion = "ST21NFC NCI Version 3.0.2";
+char* halVersion = "ST21NFC NCI Version 3.0.3";
 uint8_t cmd_set_nfc_mode_enable[] = {0x2f, 0x02, 0x02, 0x02, 0x01};
 uint8_t hal_is_closed = 1;
 pthread_mutex_t hal_mtx = PTHREAD_MUTEX_INITIALIZER;
@@ -132,18 +132,14 @@ static int hal_core_initialized(const struct nfc_nci_device* p_dev,
   return 0;  // return != 0 to signal ready immediate
 }
 
-static int hal_pre_discover(const struct nfc_nci_device* p_dev) {
+static int hal_pre_discover(__attribute__((unused)) const struct nfc_nci_device* p_dev) {
   STLOG_HAL_D("NFC-NCI HAL: %s", __func__);
-
-  st21nfc_dev_t* dev = (st21nfc_dev_t*)p_dev;
 
   return 0;  // false if no vendor-specific pre-discovery actions are needed
 }
 
-static int hal_close(const struct nfc_nci_device* p_dev) {
+static int hal_close(__attribute__((unused)) const struct nfc_nci_device* p_dev) {
   STLOG_HAL_D("NFC-NCI HAL: %s", __func__);
-
-  st21nfc_dev_t* dev = (st21nfc_dev_t*)p_dev;
 
   /* check if HAL is closed */
   (void)pthread_mutex_lock(&hal_mtx);
@@ -164,10 +160,8 @@ static int hal_close(const struct nfc_nci_device* p_dev) {
   return 0;
 }
 
-static int hal_control_granted(const struct nfc_nci_device* p_dev) {
+static int hal_control_granted(__attribute__((unused)) const struct nfc_nci_device* p_dev) {
   STLOG_HAL_D("NFC-NCI HAL: %s", __func__);
-
-  st21nfc_dev_t* dev = (st21nfc_dev_t*)p_dev;
 
   return 0;
 }

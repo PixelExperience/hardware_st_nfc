@@ -48,7 +48,6 @@ typedef struct {
  **************************************************************************************************/
 
 static void* HalWorkerThread(void* arg);
-static const char* HalEventName(HalEvent e);
 static inline int sem_wait_nointr(sem_t *sem);
 
 static void HalOnNewUpstreamFrame(HalInstance* inst, const uint8_t* data,
@@ -462,33 +461,6 @@ static uint32_t HalCalcSemWaitingTime(HalInstance* inst, struct timespec* now)
  *
  **************************************************************************************************/
 
-/**
- * Decide about a timer has expired.
- * Can only be called once on an expired timer, since it marks the timer
- * inactive, after evaluation.
- * @param inst HAL instance
- * @param timerId Timer identifier
- * @param now timespec structure for time definition
- * @return
- *  true: Timer has expired and is not active any more.
- *  false: Timer not expired( or not active).
- */
-static bool HalIsTimerExpired(HalInstance* inst, struct timespec now)
-{
-    Timer* t = &inst->timer;
-
-    if (t->active) {
-        uint32_t delta = HalTimeDiffInMs(t->startTime, now);
-
-        if (delta >= t->duration) {
-            t->active = false;
-            return true;
-        }
-    }
-
-    return false;
-}
-
 static void HalStopTimer(HalInstance* inst)
 {
     inst->timer.active = false;
@@ -838,22 +810,6 @@ static inline int sem_wait_nointr(sem_t *sem) {
     if (errno == EINTR) errno = 0;
     else return -1;
   return 0;
-}
-/**
- * Debugging helper to deliver event "String".
- * @param e  current event
- * @return String message corresponding to current event
- */
-static const char* HalEventName(HalEvent e)
-{
-    switch (e) {
-        case EVT_RX_DATA:
-            return ("EVT_RX_DATA");
-        case EVT_TX_DATA:
-            return ("EVT_TX_DATA");
-        default :
-            return "EVT_UNKOWN";
-    }
 }
 
 /**

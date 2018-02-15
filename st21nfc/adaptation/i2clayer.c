@@ -216,7 +216,6 @@ int I2cWriteCmd(const uint8_t* x, size_t len)
  */
 bool I2cOpenLayer(void* dev, HAL_CALLBACK callb, HALHANDLE* pHandle)
 {
-    int i = 0;
     uint32_t NoDbgFlag = HAL_FLAG_DEBUG;
 
       (void) pthread_mutex_lock(&i2ctransport_mtx);
@@ -252,7 +251,7 @@ bool I2cOpenLayer(void* dev, HAL_CALLBACK callb, HALHANDLE* pHandle)
 void I2cCloseLayer()
 {
     uint8_t cmd = 'X';
-    int ret, tret;
+    int ret;
     ALOGD("%s: enter\n", __func__);
 
     (void)pthread_mutex_lock(&i2ctransport_mtx);
@@ -262,7 +261,7 @@ void I2cCloseLayer()
 
     I2cWriteCmd(&cmd, sizeof(cmd));
     /* wait for terminate */
-    ret = pthread_join(threadHandle, &tret);
+    ret = pthread_join(threadHandle,(void**)NULL);
     if (ret != 0) {
         ALOGE("%s: failed to wait for thread (%d)", __func__, ret);
     }
