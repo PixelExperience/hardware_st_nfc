@@ -178,8 +178,21 @@ static void* I2cWorkerThread(void* arg)
                     uint8_t buffer[MAX_BUFFER_SIZE];
                     STLOG_HAL_V("received write command\n");
                     read(cmdPipe[0], &length, sizeof(length));
-                    read(cmdPipe[0], buffer, length);
-                    i2cWrite(fidI2c, buffer, length);
+                    if (length <= MAX_BUFFER_SIZE)
+                      {
+                        read(cmdPipe[0], buffer, length);
+                        i2cWrite(fidI2c, buffer, length);
+                      }
+                    else {
+                        STLOG_HAL_E("! received bigger data than expected!! Data not transmitted to NFCC \n");
+                        size_t bytes_read = 1;
+                        // Read all the data to empty but do not use it as not expected
+                        while((bytes_read > 0) && (length > 0))
+                          {
+                            bytes_read = read(cmdPipe[0],buffer,MAX_BUFFER_SIZE);
+                            length = length - bytes_read;
+                          }
+                    }
                 }
                 break;
             }
