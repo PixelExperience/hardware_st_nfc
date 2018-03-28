@@ -24,7 +24,7 @@
 #include <list>
 #include <string>
 #include <vector>
-#include <utils/Log.h>
+#include <log/log.h>
 #include "android_logmsg.h"
 #include <sys/stat.h>
 const char alternative_config_path[] = "";
