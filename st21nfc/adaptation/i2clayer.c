@@ -29,7 +29,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
-#include <unistd.h>
+#include <pthread.h>
 
 #include "halcore.h"
 #include "halcore_private.h"

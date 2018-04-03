@@ -24,6 +24,7 @@
 #include <errno.h>
 #include <hardware/nfc.h>
 #include <string.h>
+#include <pthread.h>
 
 #include "android_logmsg.h"
 #include "halcore.h"

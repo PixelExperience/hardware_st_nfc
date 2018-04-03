@@ -23,6 +23,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <pthread.h>
 
 /* events sent from the callback */
 #define HAL_EVENT_DSWRITE 1  /* write raw HAL data downstream   */
