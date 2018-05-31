@@ -239,7 +239,7 @@ bool I2cOpenLayer(void* dev, HAL_CALLBACK callb, HALHANDLE* pHandle)
         return false;
     }
 
-    i2cSetPolarity(fidI2c, false, true);
+    i2cSetPolarity(fidI2c, false, false);
     i2cResetPulse(fidI2c);
 
     if ((pipe(cmdPipe) == -1)) {
