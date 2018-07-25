@@ -63,8 +63,6 @@ void DispHal(const char* title, const void* data, size_t length) {
   if (length == 0) {
     STLOG_HAL_D("%s", title);
     return;
-  } else {
-      STLOG_HAL_D("%s: ", title);
   }
   for (i = 0, k = 0; i < length; i++, k++) {
     if (k > 31) {
