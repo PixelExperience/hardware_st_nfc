@@ -61,7 +61,7 @@ cc_binary {
     name: "android.hardware.nfc@1.1-service.st",
     defaults: ["hidl_defaults"],
     proprietary: true,
-    init_rc: ["1.1/android.hardware.nfc@1.1-service.rc"],
+    init_rc: ["1.1/android.hardware.nfc@1.1-service.st.rc"],
     relative_install_path: "hw",
     srcs: [
         "1.1/StNfcService.cpp",
