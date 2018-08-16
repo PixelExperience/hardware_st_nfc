@@ -352,28 +352,37 @@ static int i2cWrite(int fid, const uint8_t* pvBuffer, int length)
 {
     int retries = 0;
     int result = 0;
+    int halfsecs = 0;
 
-    while (retries < 3) {
-        result = write(fid, pvBuffer, length);
+redo:
+  while (retries < 3) {
+    result = write(fid, pvBuffer, length);
 
         if (result < 0) {
             char msg[LINUX_DBGBUFFER_SIZE];
 
-            strerror_r(errno, msg, LINUX_DBGBUFFER_SIZE);
-            STLOG_HAL_W("! i2cWrite!!, errno is '%s'", msg);
-            usleep(4000);
-            retries++;
-        } else if (result > 0) {
-            result = 0;
-            return result;
-        } else {
-            STLOG_HAL_W("write on i2c failed, retrying\n");
-            usleep(4000);
-            retries++;
-        }
+      strerror_r(errno, msg, LINUX_DBGBUFFER_SIZE);
+      STLOG_HAL_W("! i2cWrite!!, errno is '%s'", msg);
+      usleep(4000);
+      retries++;
+    } else if (result > 0) {
+      result = 0;
+      return result;
+    } else {
+      STLOG_HAL_W("write on i2c failed, retrying\n");
+      usleep(4000);
+      retries++;
     }
-
-    return -1;
+  }
+  /* If we're here, we failed to write to NFCC. Retry after 500ms because some
+  CPUs have shown such long unavailability sometimes */
+  if (halfsecs < 10) {
+    usleep(500000);
+    halfsecs++;
+    goto redo;
+  }
+  /* The CLF did not recover, give up */
+  return -1;
 } /* i2cWrite */
 
 /**
