@@ -235,6 +235,7 @@ bool I2cOpenLayer(void* dev, HAL_CALLBACK callb, HALHANDLE* pHandle)
     fidI2c = open("/dev/st21nfc", O_RDWR);
     if (fidI2c < 0) {
         STLOG_HAL_W("unable to open /dev/st21nfc\n");
+        (void) pthread_mutex_unlock(&i2ctransport_mtx);
         return false;
     }
 
@@ -243,6 +244,7 @@ bool I2cOpenLayer(void* dev, HAL_CALLBACK callb, HALHANDLE* pHandle)
 
     if ((pipe(cmdPipe) == -1)) {
         STLOG_HAL_W("unable to open cmdpipe\n");
+        (void) pthread_mutex_unlock(&i2ctransport_mtx);
         return false;
     }
 
@@ -250,6 +252,7 @@ bool I2cOpenLayer(void* dev, HAL_CALLBACK callb, HALHANDLE* pHandle)
 
     if (!*pHandle) {
         STLOG_HAL_E("failed to create NFC HAL Core \n");
+        (void) pthread_mutex_unlock(&i2ctransport_mtx);
         return false;
     }
 
@@ -269,8 +272,10 @@ void I2cCloseLayer()
 
     (void)pthread_mutex_lock(&i2ctransport_mtx);
 
-    if (threadHandle == (pthread_t)NULL)
+    if (threadHandle == (pthread_t)NULL) {
+        (void)pthread_mutex_unlock(&i2ctransport_mtx);
         return;
+    }
 
     I2cWriteCmd(&cmd, sizeof(cmd));
     /* wait for terminate */
