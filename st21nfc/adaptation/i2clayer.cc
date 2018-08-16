@@ -23,17 +23,17 @@
 #include <limits.h>
 #include <linux/input.h> /* not required for all builds */
 #include <poll.h>
+#include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
-#include <pthread.h>
 
+#include "android_logmsg.h"
 #include "halcore.h"
 #include "halcore_private.h"
-#include "android_logmsg.h"
 
 #define ST21NFC_MAGIC 0xEA
 
@@ -76,137 +76,135 @@ static int i2cWrite(int fd, const uint8_t* pvBuffer, int length);
  * On exit of this thread, destroy the HAL thread instance.
  * @param arg  Handle of the HAL layer
  */
-static void* I2cWorkerThread(void* arg)
-{
-    bool closeThread = false;
-    HALHANDLE hHAL = (HALHANDLE)arg;
-    STLOG_HAL_D("echo thread started...\n");
-    bool readOk= false;
+static void* I2cWorkerThread(void* arg) {
+  bool closeThread = false;
+  HALHANDLE hHAL = (HALHANDLE)arg;
+  STLOG_HAL_D("echo thread started...\n");
+  bool readOk = false;
 
-    do {
-        event_table[0].fd = fidI2c;
-        event_table[0].events = POLLIN;
-        event_table[0].revents = 0;
+  do {
+    event_table[0].fd = fidI2c;
+    event_table[0].events = POLLIN;
+    event_table[0].revents = 0;
 
-        event_table[1].fd = cmdPipe[0];
-        event_table[1].events = POLLIN;
-        event_table[1].revents = 0;
+    event_table[1].fd = cmdPipe[0];
+    event_table[1].events = POLLIN;
+    event_table[1].revents = 0;
 
-        STLOG_HAL_V("echo thread go to sleep...\n");
+    STLOG_HAL_V("echo thread go to sleep...\n");
 
-        int poll_status = poll(event_table, 2, -1);
+    int poll_status = poll(event_table, 2, -1);
 
-        if (-1 == poll_status) {
-            STLOG_HAL_E("error in poll call\n");
-            break;
-        }
+    if (-1 == poll_status) {
+      STLOG_HAL_E("error in poll call\n");
+      break;
+    }
 
-        if (event_table[0].revents & POLLIN) {
-            STLOG_HAL_V("echo thread wakeup from chip...\n");
+    if (event_table[0].revents & POLLIN) {
+      STLOG_HAL_V("echo thread wakeup from chip...\n");
 
-            uint8_t buffer[300];
+      uint8_t buffer[300];
 
-            do {
-                // load first four bytes:
-                int bytesRead = i2cRead(fidI2c, buffer, 3);
+      do {
+        // load first four bytes:
+        int bytesRead = i2cRead(fidI2c, buffer, 3);
 
-                if (bytesRead == 3) {
-                    if ((buffer[0] != 0x7E) && (buffer[1] != 0x7E)) {
-                        readOk = true;
-                    } else {
-                        if (buffer[1] != 0x7E) {
-                            STLOG_HAL_W("Idle data: 2nd byte is 0x%02x\n, reading next 2 bytes",
-                                  buffer[1]);
-                            buffer[0] = buffer[1];
-                            buffer[1] = buffer[2];
-                            bytesRead = i2cRead(fidI2c, buffer + 2, 1);
-                            if (bytesRead == 1) {
-                                readOk = true;
-                            }
-                        } else if (buffer[2] != 0x7E) {
-                            STLOG_HAL_W("Idle data: 3rd byte is 0x%02x\n, reading next  byte",
-                                  buffer[2]);
-                            buffer[0] = buffer[2];
-                            bytesRead = i2cRead(fidI2c, buffer + 1, 2);
-                            if (bytesRead == 2) {
-                                readOk = true;
-                            }
-                        } else {
-                            STLOG_HAL_W("received idle data\n");
-                        }
-                    }
-
-                    if (readOk == true) {
-                        int remaining = buffer[2];
-
-                        // read and pass to HALCore
-                        bytesRead = i2cRead(fidI2c, buffer + 3, remaining);
-                        if (bytesRead == remaining) {
-                            DispHal("RX DATA", buffer, 3 + bytesRead);
-                            HalSendUpstream(hHAL, buffer, 3 + bytesRead);
-                        } else {
-                            readOk = false;
-                            STLOG_HAL_E("! didn't read expected bytes from i2c\n");
-                        }
-                    }
-
-                } else {
-                    STLOG_HAL_E("! didn't read 3 requested bytes from i2c\n");
-                }
-
-                readOk = false;
-                memset(buffer, 0xca, sizeof(buffer));
-
-                /* read while we have data available */
-            } while (i2cGetGPIOState(fidI2c) == 1);
-        }
-
-        if (event_table[1].revents & POLLIN) {
-            STLOG_HAL_V("thread received command.. \n");
-
-            char cmd = 0;
-            read(cmdPipe[0], &cmd, 1);
-
-            switch (cmd) {
-                case 'X':
-                    STLOG_HAL_D("received close command\n");
-                    closeThread = true;
-                    break;
-
-                case 'W': {
-                    size_t length;
-                    uint8_t buffer[MAX_BUFFER_SIZE];
-                    STLOG_HAL_V("received write command\n");
-                    read(cmdPipe[0], &length, sizeof(length));
-                    if (length <= MAX_BUFFER_SIZE)
-                      {
-                        read(cmdPipe[0], buffer, length);
-                        i2cWrite(fidI2c, buffer, length);
-                      }
-                    else {
-                        STLOG_HAL_E("! received bigger data than expected!! Data not transmitted to NFCC \n");
-                        size_t bytes_read = 1;
-                        // Read all the data to empty but do not use it as not expected
-                        while((bytes_read > 0) && (length > 0))
-                          {
-                            bytes_read = read(cmdPipe[0],buffer,MAX_BUFFER_SIZE);
-                            length = length - bytes_read;
-                          }
-                    }
-                }
-                break;
+        if (bytesRead == 3) {
+          if ((buffer[0] != 0x7E) && (buffer[1] != 0x7E)) {
+            readOk = true;
+          } else {
+            if (buffer[1] != 0x7E) {
+              STLOG_HAL_W(
+                  "Idle data: 2nd byte is 0x%02x\n, reading next 2 bytes",
+                  buffer[1]);
+              buffer[0] = buffer[1];
+              buffer[1] = buffer[2];
+              bytesRead = i2cRead(fidI2c, buffer + 2, 1);
+              if (bytesRead == 1) {
+                readOk = true;
+              }
+            } else if (buffer[2] != 0x7E) {
+              STLOG_HAL_W("Idle data: 3rd byte is 0x%02x\n, reading next  byte",
+                          buffer[2]);
+              buffer[0] = buffer[2];
+              bytesRead = i2cRead(fidI2c, buffer + 1, 2);
+              if (bytesRead == 2) {
+                readOk = true;
+              }
+            } else {
+              STLOG_HAL_W("received idle data\n");
             }
+          }
+
+          if (readOk == true) {
+            int remaining = buffer[2];
+
+            // read and pass to HALCore
+            bytesRead = i2cRead(fidI2c, buffer + 3, remaining);
+            if (bytesRead == remaining) {
+              DispHal("RX DATA", buffer, 3 + bytesRead);
+              HalSendUpstream(hHAL, buffer, 3 + bytesRead);
+            } else {
+              readOk = false;
+              STLOG_HAL_E("! didn't read expected bytes from i2c\n");
+            }
+          }
+
+        } else {
+          STLOG_HAL_E("! didn't read 3 requested bytes from i2c\n");
         }
 
-    } while (!closeThread);
+        readOk = false;
+        memset(buffer, 0xca, sizeof(buffer));
 
-    close(fidI2c);
-    close(cmdPipe[0]);
-    close(cmdPipe[1]);
+        /* read while we have data available */
+      } while (i2cGetGPIOState(fidI2c) == 1);
+    }
 
-    HalDestroy(hHAL);
-    STLOG_HAL_D("thread exit\n");
-    return 0;
+    if (event_table[1].revents & POLLIN) {
+      STLOG_HAL_V("thread received command.. \n");
+
+      char cmd = 0;
+      read(cmdPipe[0], &cmd, 1);
+
+      switch (cmd) {
+        case 'X':
+          STLOG_HAL_D("received close command\n");
+          closeThread = true;
+          break;
+
+        case 'W': {
+          size_t length;
+          uint8_t buffer[MAX_BUFFER_SIZE];
+          STLOG_HAL_V("received write command\n");
+          read(cmdPipe[0], &length, sizeof(length));
+          if (length <= MAX_BUFFER_SIZE) {
+            read(cmdPipe[0], buffer, length);
+            i2cWrite(fidI2c, buffer, length);
+          } else {
+            STLOG_HAL_E(
+                "! received bigger data than expected!! Data not transmitted "
+                "to NFCC \n");
+            size_t bytes_read = 1;
+            // Read all the data to empty but do not use it as not expected
+            while ((bytes_read > 0) && (length > 0)) {
+              bytes_read = read(cmdPipe[0], buffer, MAX_BUFFER_SIZE);
+              length = length - bytes_read;
+            }
+          }
+        } break;
+      }
+    }
+
+  } while (!closeThread);
+
+  close(fidI2c);
+  close(cmdPipe[0]);
+  close(cmdPipe[1]);
+
+  HalDestroy(hHAL);
+  STLOG_HAL_D("thread exit\n");
+  return 0;
 }
 
 /**
@@ -216,9 +214,8 @@ static void* I2cWorkerThread(void* arg)
  * @param len Size of command or data
  * @return
  */
-int I2cWriteCmd(const uint8_t* x, size_t len)
-{
-    return write(cmdPipe[1], x, len);
+int I2cWriteCmd(const uint8_t* x, size_t len) {
+  return write(cmdPipe[1], x, len);
 }
 
 /**
@@ -227,64 +224,62 @@ int I2cWriteCmd(const uint8_t* x, size_t len)
  * @param callb HAL Core callback upon reception on I2C
  * @param pHandle HAL context handle
  */
-bool I2cOpenLayer(void* dev, HAL_CALLBACK callb, HALHANDLE* pHandle)
-{
-    uint32_t NoDbgFlag = HAL_FLAG_DEBUG;
+bool I2cOpenLayer(void* dev, HAL_CALLBACK callb, HALHANDLE* pHandle) {
+  uint32_t NoDbgFlag = HAL_FLAG_DEBUG;
 
-      (void) pthread_mutex_lock(&i2ctransport_mtx);
-    fidI2c = open("/dev/st21nfc", O_RDWR);
-    if (fidI2c < 0) {
-        STLOG_HAL_W("unable to open /dev/st21nfc  (%s) \n", strerror(errno));
-        (void) pthread_mutex_unlock(&i2ctransport_mtx);
-        return false;
-    }
+  (void)pthread_mutex_lock(&i2ctransport_mtx);
+  fidI2c = open("/dev/st21nfc", O_RDWR);
+  if (fidI2c < 0) {
+    STLOG_HAL_W("unable to open /dev/st21nfc  (%s) \n", strerror(errno));
+    (void)pthread_mutex_unlock(&i2ctransport_mtx);
+    return false;
+  }
 
-    i2cSetPolarity(fidI2c, false, false);
-    i2cResetPulse(fidI2c);
+  i2cSetPolarity(fidI2c, false, false);
+  i2cResetPulse(fidI2c);
 
-    if ((pipe(cmdPipe) == -1)) {
-        STLOG_HAL_W("unable to open cmdpipe\n");
-        (void) pthread_mutex_unlock(&i2ctransport_mtx);
-        return false;
-    }
+  if ((pipe(cmdPipe) == -1)) {
+    STLOG_HAL_W("unable to open cmdpipe\n");
+    (void)pthread_mutex_unlock(&i2ctransport_mtx);
+    return false;
+  }
 
-    *pHandle = HalCreate(dev, callb, NoDbgFlag);
+  *pHandle = HalCreate(dev, callb, NoDbgFlag);
 
-    if (!*pHandle) {
-        STLOG_HAL_E("failed to create NFC HAL Core \n");
-        (void) pthread_mutex_unlock(&i2ctransport_mtx);
-        return false;
-    }
+  if (!*pHandle) {
+    STLOG_HAL_E("failed to create NFC HAL Core \n");
+    (void)pthread_mutex_unlock(&i2ctransport_mtx);
+    return false;
+  }
 
-      (void) pthread_mutex_unlock(&i2ctransport_mtx);
+  (void)pthread_mutex_unlock(&i2ctransport_mtx);
 
-    return (pthread_create(&threadHandle, NULL, I2cWorkerThread, *pHandle) == 0);
+  return (pthread_create(&threadHandle, NULL, I2cWorkerThread, *pHandle) == 0);
 }
 
 /**
  * Terminates the I2C layer.
  */
-void I2cCloseLayer()
-{
-    uint8_t cmd = 'X';
-    int ret;
-    ALOGD("%s: enter\n", __func__);
+void I2cCloseLayer() {
+  uint8_t cmd = 'X';
+  int ret;
+  ALOGD("%s: enter\n", __func__);
 
-    (void)pthread_mutex_lock(&i2ctransport_mtx);
+  (void)pthread_mutex_lock(&i2ctransport_mtx);
 
-    if (threadHandle == (pthread_t)NULL) {
-        (void)pthread_mutex_unlock(&i2ctransport_mtx);
-        return;
-    }
-
-    I2cWriteCmd(&cmd, sizeof(cmd));
-    /* wait for terminate */
-    ret = pthread_join(threadHandle,(void**)NULL);
-    if (ret != 0) {
-        ALOGE("%s: failed to wait for thread (%d)", __func__, ret);
-    }
-    threadHandle = (pthread_t)NULL;
+  if (threadHandle == (pthread_t)NULL) {
     (void)pthread_mutex_unlock(&i2ctransport_mtx);
+    return;
+  }
+
+  I2cWriteCmd(&cmd, sizeof(cmd));
+  /* wait for terminate */
+  ret = pthread_join(threadHandle, (void**)NULL);
+  if (ret != 0) {
+    ALOGE("%s: failed to wait for thread (%d)", __func__, ret);
+  }
+  threadHandle = (pthread_t)NULL;
+  (void)pthread_mutex_unlock(&i2ctransport_mtx);
 }
 /**************************************************************************************************
  *
@@ -298,31 +293,30 @@ void I2cCloseLayer()
  * @param edge Polarity (RISING or FALLING)
  * @return Result of IOCTL system call (0 if ok)
  */
-static int i2cSetPolarity(int fid, bool low, bool edge)
-{
-    int result;
-    unsigned int io_code;
+static int i2cSetPolarity(int fid, bool low, bool edge) {
+  int result;
+  unsigned int io_code;
 
-    if (low) {
-        if (edge) {
-            io_code = ST21NFC_SET_POLARITY_FALLING;
-        } else {
-            io_code = ST21NFC_SET_POLARITY_LOW;
-        }
-
+  if (low) {
+    if (edge) {
+      io_code = ST21NFC_SET_POLARITY_FALLING;
     } else {
-        if (edge) {
-            io_code = ST21NFC_SET_POLARITY_RISING;
-        } else {
-            io_code = ST21NFC_SET_POLARITY_HIGH;
-        }
+      io_code = ST21NFC_SET_POLARITY_LOW;
     }
 
-    if (-1 == (result = ioctl(fid, io_code, NULL))) {
-        result = -1;
+  } else {
+    if (edge) {
+      io_code = ST21NFC_SET_POLARITY_RISING;
+    } else {
+      io_code = ST21NFC_SET_POLARITY_HIGH;
     }
+  }
 
-    return result;
+  if (-1 == (result = ioctl(fid, io_code, NULL))) {
+    result = -1;
+  }
+
+  return result;
 } /* i2cSetPolarity*/
 
 /**
@@ -330,15 +324,14 @@ static int i2cSetPolarity(int fid, bool low, bool edge)
  * @param fid File descriptor for NFC device
  * @return Result of IOCTL system call (0 if ok)
  */
-static int i2cResetPulse(int fid)
-{
-    int result;
+static int i2cResetPulse(int fid) {
+  int result;
 
-    if (-1 == (result = ioctl(fid, ST21NFC_PULSE_RESET, NULL))) {
-        result = -1;
-    }
-    STLOG_HAL_D("! i2cResetPulse!!, result = %d", result);
-    return result;
+  if (-1 == (result = ioctl(fid, ST21NFC_PULSE_RESET, NULL))) {
+    result = -1;
+  }
+  STLOG_HAL_D("! i2cResetPulse!!, result = %d", result);
+  return result;
 } /* i2cResetPulse*/
 
 /**
@@ -348,18 +341,17 @@ static int i2cResetPulse(int fid)
  * @param length Data size
  * @return 0 if bytes written, -1 if error
  */
-static int i2cWrite(int fid, const uint8_t* pvBuffer, int length)
-{
-    int retries = 0;
-    int result = 0;
-    int halfsecs = 0;
+static int i2cWrite(int fid, const uint8_t* pvBuffer, int length) {
+  int retries = 0;
+  int result = 0;
+  int halfsecs = 0;
 
 redo:
   while (retries < 3) {
     result = write(fid, pvBuffer, length);
 
-        if (result < 0) {
-            char msg[LINUX_DBGBUFFER_SIZE];
+    if (result < 0) {
+      char msg[LINUX_DBGBUFFER_SIZE];
 
       strerror_r(errno, msg, LINUX_DBGBUFFER_SIZE);
       STLOG_HAL_W("! i2cWrite!!, errno is '%s'", msg);
@@ -393,44 +385,45 @@ redo:
  * @param length Data size to read
  * @return Length of read data, -1 if error
  */
-static int i2cRead(int fid, uint8_t* pvBuffer, int length)
-{
-    int retries = 0;
-    int result = -1;
+static int i2cRead(int fid, uint8_t* pvBuffer, int length) {
+  int retries = 0;
+  int result = -1;
 
-    while ((retries < 3) && (result < 0)) {
-        result = read(fid, pvBuffer, length);
+  while ((retries < 3) && (result < 0)) {
+    result = read(fid, pvBuffer, length);
 
-        if (result == -1) {
-            int e = errno;
-            if (e == EAGAIN) {
-                /* File is nonblocking, and no data is available.
-                 * This is not an error condition!
-                 */
-                result = 0;
-                STLOG_HAL_D("## i2cRead - got EAGAIN. No data available. return 0 bytes");
-            } else {
-                /* unexpected result */
-                char msg[LINUX_DBGBUFFER_SIZE];
-                strerror_r(e, msg, LINUX_DBGBUFFER_SIZE);
-                STLOG_HAL_W("## i2cRead returns %d errno %d (%s)", result, e, msg);
-            }
-        }
-
-        if (result < 0) {
-            if (retries < 3) {
-                /* delays are different and increasing for the three retries. */
-                static const uint8_t delayTab[] = {2, 3, 5};
-                int delay = delayTab[retries];
-
-                retries++;
-                STLOG_HAL_W("## i2cRead retry %d/3 in %d milliseconds.", retries, delay);
-                usleep(delay * 1000);
-                continue;
-            }
-        }
+    if (result == -1) {
+      int e = errno;
+      if (e == EAGAIN) {
+        /* File is nonblocking, and no data is available.
+         * This is not an error condition!
+         */
+        result = 0;
+        STLOG_HAL_D(
+            "## i2cRead - got EAGAIN. No data available. return 0 bytes");
+      } else {
+        /* unexpected result */
+        char msg[LINUX_DBGBUFFER_SIZE];
+        strerror_r(e, msg, LINUX_DBGBUFFER_SIZE);
+        STLOG_HAL_W("## i2cRead returns %d errno %d (%s)", result, e, msg);
+      }
     }
-    return result;
+
+    if (result < 0) {
+      if (retries < 3) {
+        /* delays are different and increasing for the three retries. */
+        static const uint8_t delayTab[] = {2, 3, 5};
+        int delay = delayTab[retries];
+
+        retries++;
+        STLOG_HAL_W("## i2cRead retry %d/3 in %d milliseconds.", retries,
+                    delay);
+        usleep(delay * 1000);
+        continue;
+      }
+    }
+  }
+  return result;
 } /* i2cRead */
 
 /**
@@ -443,13 +436,12 @@ static int i2cRead(int fid, uint8_t* pvBuffer, int length)
  *  Result > 0:     Pin active
  *  Result = 0:     Pin not active
  */
-static int i2cGetGPIOState(int fid)
-{
-    int result;
+static int i2cGetGPIOState(int fid) {
+  int result;
 
-    if (-1 == (result = ioctl(fid, ST21NFC_GET_WAKEUP, NULL))) {
-        result = -1;
-    }
+  if (-1 == (result = ioctl(fid, ST21NFC_GET_WAKEUP, NULL))) {
+    result = -1;
+  }
 
-    return result;
+  return result;
 } /* i2cGetGPIOState */

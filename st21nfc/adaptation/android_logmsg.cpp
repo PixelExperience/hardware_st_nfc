@@ -19,7 +19,6 @@
 #include "android_logmsg.h"
 #include <stdio.h>
 
-
 void DispHal(const char* title, const void* data, size_t length);
 unsigned char hal_trace_level = STNFC_TRACE_LEVEL_DEBUG;
 
@@ -70,14 +69,14 @@ void DispHal(const char* title, const void* data, size_t length) {
       if (first_line == true) {
         first_line = false;
         if (title[0] == 'R') {
-            STLOG_HAL_D("Rx %s\n", line);
+          STLOG_HAL_D("Rx %s\n", line);
         } else if (title[0] == 'T') {
-            STLOG_HAL_D("Tx %s\n", line);
+          STLOG_HAL_D("Tx %s\n", line);
         } else {
-            STLOG_HAL_D("%s\n", line);
+          STLOG_HAL_D("%s\n", line);
         }
       } else {
-          STLOG_HAL_D("%s\n", line);
+        STLOG_HAL_D("%s\n", line);
       }
       line[k] = 0;
     }
@@ -86,13 +85,13 @@ void DispHal(const char* title, const void* data, size_t length) {
 
   if (first_line == true) {
     if (title[0] == 'R') {
-        STLOG_HAL_D("Rx %s\n", line);
+      STLOG_HAL_D("Rx %s\n", line);
     } else if (title[0] == 'T') {
-        STLOG_HAL_D("Tx %s\n", line);
+      STLOG_HAL_D("Tx %s\n", line);
     } else {
-        STLOG_HAL_D("%s\n", line);
+      STLOG_HAL_D("%s\n", line);
     }
   } else {
-      STLOG_HAL_D("%s\n", line);
+    STLOG_HAL_D("%s\n", line);
   }
 }
