@@ -14,7 +14,7 @@
 
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
-LOCAL_MODULE := nfc_nci.st21nfc.default
+LOCAL_MODULE := nfc_nci.st21nfc
 LOCAL_PROPRIETARY_MODULE := true
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_SRC_FILES := \
