@@ -41,9 +41,12 @@ typedef struct {
   nfc_stack_callback_t* p_cback;
   nfc_stack_data_callback_t* p_data_cback;
   HALHANDLE hHAL;
+  nfc_stack_callback_t* p_cback_unwrap;
 } st21nfc_dev_t;
 
-const char* halVersion = "ST21NFC HAL1.1 Version 3.1.5";
+
+const char* halVersion = "ST21NFC HAL1.1 Version 3.1.6";
+
 uint8_t cmd_set_nfc_mode_enable[] = {0x2f, 0x02, 0x02, 0x02, 0x01};
 uint8_t hal_is_closed = 1;
 pthread_mutex_t hal_mtx = PTHREAD_MUTEX_INITIALIZER;
@@ -63,6 +66,210 @@ extern bool hal_wrapper_open(st21nfc_dev_t* dev, nfc_stack_callback_t* p_cback,
 
 extern int hal_wrapper_close(int call_cb);
 
+
+/* Make sure to always post nfc_stack_callback_t in a separate thread.
+This prevents a possible deadlock in upper layer on some sequences.
+We need to synchronize finely for the callback called for hal close,
+otherwise the upper layer either does not receive the event, or deadlocks,
+because the HAL is closing while the callback may be blocked.
+ */
+static struct async_callback_struct {
+  pthread_mutex_t mutex;
+  pthread_cond_t cond;
+  pthread_t thr;
+  int event_pending;
+  int stop_thread;
+  int thread_running;
+  nfc_event_t event;
+  nfc_status_t event_status;
+} async_callback_data;
+
+static void* async_callback_thread_fct(void* arg) {
+  int ret;
+  struct async_callback_struct* pcb_data = (struct async_callback_struct*)arg;
+
+  ret = pthread_mutex_lock(&pcb_data->mutex);
+  if (ret != 0) {
+    STLOG_HAL_E("HAL: %s pthread_mutex_lock failed", __func__);
+    goto error;
+  }
+
+  do {
+    if (pcb_data->event_pending == 0) {
+      ret = pthread_cond_wait(&pcb_data->cond, &pcb_data->mutex);
+      if (ret != 0) {
+        STLOG_HAL_E("HAL: %s pthread_cond_wait failed", __func__);
+        break;
+      }
+    }
+
+    if (pcb_data->event_pending) {
+      nfc_event_t event = pcb_data->event;
+      nfc_status_t event_status = pcb_data->event_status;
+      int ending = pcb_data->stop_thread;
+      pcb_data->event_pending = 0;
+      ret = pthread_cond_signal(&pcb_data->cond);
+      if (ret != 0) {
+        STLOG_HAL_E("HAL: %s pthread_cond_signal failed", __func__);
+        break;
+      }
+      if (ending) {
+        pcb_data->thread_running = 0;
+      }
+      ret = pthread_mutex_unlock(&pcb_data->mutex);
+      if (ret != 0) {
+        STLOG_HAL_E("HAL: %s pthread_mutex_unlock failed", __func__);
+      }
+      STLOG_HAL_D("HAL st21nfc: %s event %hhx status %hhx", __func__, event,
+                  event_status);
+      dev.p_cback_unwrap(event, event_status);
+      if (ending) {
+        return NULL;
+      }
+      ret = pthread_mutex_lock(&pcb_data->mutex);
+      if (ret != 0) {
+        STLOG_HAL_E("HAL: %s pthread_mutex_lock failed", __func__);
+        goto error;
+      }
+    }
+  } while (pcb_data->stop_thread == 0 || pcb_data->event_pending);
+
+  ret = pthread_mutex_unlock(&pcb_data->mutex);
+  if (ret != 0) {
+    STLOG_HAL_E("HAL: %s pthread_mutex_unlock failed", __func__);
+  }
+
+error:
+  pcb_data->thread_running = 0;
+  return NULL;
+}
+
+static int async_callback_thread_start() {
+  int ret;
+
+  memset(&async_callback_data, 0, sizeof(async_callback_data));
+
+  ret = pthread_mutex_init(&async_callback_data.mutex, NULL);
+  if (ret != 0) {
+    STLOG_HAL_E("HAL: %s pthread_mutex_init failed", __func__);
+    return ret;
+  }
+
+  ret = pthread_cond_init(&async_callback_data.cond, NULL);
+  if (ret != 0) {
+    STLOG_HAL_E("HAL: %s pthread_cond_init failed", __func__);
+    return ret;
+  }
+
+  async_callback_data.thread_running = 1;
+
+  ret = pthread_create(&async_callback_data.thr, NULL,
+                       async_callback_thread_fct, &async_callback_data);
+  if (ret != 0) {
+    STLOG_HAL_E("HAL: %s pthread_create failed", __func__);
+    async_callback_data.thread_running = 0;
+    return ret;
+  }
+
+  return 0;
+}
+
+static int async_callback_thread_end() {
+  if (async_callback_data.thread_running != 0) {
+    int ret;
+
+    ret = pthread_mutex_lock(&async_callback_data.mutex);
+    if (ret != 0) {
+      STLOG_HAL_E("HAL: %s pthread_mutex_lock failed", __func__);
+      return ret;
+    }
+
+    async_callback_data.stop_thread = 1;
+
+    // Wait for the thread to have no event pending
+    while (async_callback_data.thread_running &&
+           async_callback_data.event_pending) {
+      ret = pthread_cond_signal(&async_callback_data.cond);
+      if (ret != 0) {
+        STLOG_HAL_E("HAL: %s pthread_cond_signal failed", __func__);
+        return ret;
+      }
+      ret = pthread_cond_wait(&async_callback_data.cond,
+                              &async_callback_data.mutex);
+      if (ret != 0) {
+        STLOG_HAL_E("HAL: %s pthread_cond_wait failed", __func__);
+        break;
+      }
+    }
+
+    ret = pthread_mutex_unlock(&async_callback_data.mutex);
+    if (ret != 0) {
+      STLOG_HAL_E("HAL: %s pthread_mutex_unlock failed", __func__);
+      return ret;
+    }
+
+    ret = pthread_cond_signal(&async_callback_data.cond);
+    if (ret != 0) {
+      STLOG_HAL_E("HAL: %s pthread_cond_signal failed", __func__);
+      return ret;
+    }
+
+    ret = pthread_detach(async_callback_data.thr);
+    if (ret != 0) {
+      STLOG_HAL_E("HAL: %s pthread_detach failed", __func__);
+      return ret;
+    }
+  }
+  return 0;
+}
+
+static void async_callback_post(nfc_event_t event, nfc_status_t event_status) {
+  int ret;
+
+  if (pthread_equal(pthread_self(), async_callback_data.thr)) {
+    dev.p_cback_unwrap(event, event_status);
+  }
+
+  ret = pthread_mutex_lock(&async_callback_data.mutex);
+  if (ret != 0) {
+    STLOG_HAL_E("HAL: %s pthread_mutex_lock failed", __func__);
+    return;
+  }
+
+  if (async_callback_data.thread_running == 0) {
+    (void)pthread_mutex_unlock(&async_callback_data.mutex);
+    STLOG_HAL_E("HAL: %s thread is not running", __func__);
+    dev.p_cback_unwrap(event, event_status);
+    return;
+  }
+
+  while (async_callback_data.event_pending) {
+    ret = pthread_cond_wait(&async_callback_data.cond,
+                            &async_callback_data.mutex);
+    if (ret != 0) {
+      STLOG_HAL_E("HAL: %s pthread_cond_wait failed", __func__);
+      return;
+    }
+  }
+
+  async_callback_data.event_pending = 1;
+  async_callback_data.event = event;
+  async_callback_data.event_status = event_status;
+
+  ret = pthread_mutex_unlock(&async_callback_data.mutex);
+  if (ret != 0) {
+    STLOG_HAL_E("HAL: %s pthread_mutex_unlock failed", __func__);
+    return;
+  }
+
+  ret = pthread_cond_signal(&async_callback_data.cond);
+  if (ret != 0) {
+    STLOG_HAL_E("HAL: %s pthread_cond_signal failed", __func__);
+    return;
+  }
+}
+/* ------ */
+
 int StNfc_hal_open(nfc_stack_callback_t* p_cback,
                     nfc_stack_data_callback_t* p_data_cback) {
   bool result = false;
@@ -75,18 +282,27 @@ int StNfc_hal_open(nfc_stack_callback_t* p_cback,
     hal_wrapper_close(0);
   }
 
-  dev.p_cback = p_cback;
+  dev.p_cback = p_cback;  // will be replaced by wrapper version
+  dev.p_cback_unwrap = p_cback;
   dev.p_data_cback = p_data_cback;
   hal_dta_state = 0;
   // Initialize and get global logging level
   InitializeSTLogLevel();
-  result = hal_wrapper_open(&dev, p_cback, p_data_cback, &(dev.hHAL));
+
+  if ((hal_is_closed || !async_callback_data.thread_running) &&
+      (async_callback_thread_start() != 0)) {
+    dev.p_cback(HAL_NFC_OPEN_CPLT_EVT, HAL_NFC_STATUS_FAILED);
+    (void)pthread_mutex_unlock(&hal_mtx);
+    return -1;  // We are doomed, stop it here, NOW !
+  }
+  result =
+      hal_wrapper_open(&dev, async_callback_post, p_data_cback, &(dev.hHAL));
 
   if (!result || !(dev.hHAL))
     {
-      dev.p_cback(HAL_NFC_OPEN_CPLT_EVT, HAL_NFC_STATUS_FAILED);
-      (void) pthread_mutex_unlock(&hal_mtx);
-      return -1;  // We are doomed, stop it here, NOW !
+    async_callback_post(HAL_NFC_OPEN_CPLT_EVT, HAL_NFC_STATUS_FAILED);
+    (void)pthread_mutex_unlock(&hal_mtx);
+    return -1;  // We are doomed, stop it here, NOW !
     }
   hal_is_closed = 0;
   (void)pthread_mutex_unlock(&hal_mtx);
@@ -126,7 +342,7 @@ int StNfc_hal_core_initialized( uint8_t* p_core_init_rsp_params) {
 
   (void)pthread_mutex_lock(&hal_mtx);
   hal_dta_state = *p_core_init_rsp_params;
-  dev.p_cback(HAL_NFC_POST_INIT_CPLT_EVT, HAL_NFC_STATUS_OK);
+  async_callback_post(HAL_NFC_POST_INIT_CPLT_EVT, HAL_NFC_STATUS_OK);
   (void) pthread_mutex_unlock(&hal_mtx);
 
   return 0;  // return != 0 to signal ready immediate
@@ -157,6 +373,13 @@ int StNfc_hal_close() {
 
   hal_dta_state = 0;
 
+  if (async_callback_thread_end() != 0) {
+    STLOG_HAL_E("HAL st21nfc: %s async_callback_thread_end failed", __func__);
+    return -1;  // We are doomed, stop it here, NOW !
+  }
+
+  usleep(2000);  // give 2ms for the callback thread to pass the binder
+  STLOG_HAL_D("HAL st21nfc: %s close", __func__);
   return 0;
 }
 
@@ -182,10 +405,10 @@ int StNfc_hal_power_cycle() {
       (void) pthread_mutex_unlock(&hal_mtx);
       return ret;
     }
-  dev.p_cback(HAL_NFC_OPEN_CPLT_EVT, HAL_NFC_STATUS_OK);
+    async_callback_post(HAL_NFC_OPEN_CPLT_EVT, HAL_NFC_STATUS_OK);
 
-  (void) pthread_mutex_unlock(&hal_mtx);
-  return HAL_NFC_STATUS_OK;
+    (void)pthread_mutex_unlock(&hal_mtx);
+    return HAL_NFC_STATUS_OK;
 }
 
 
