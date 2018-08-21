@@ -25,51 +25,51 @@
 extern "C" {
 #endif
 
-#include "data_types.h"
-#include <log/log.h>
 #include <cutils/properties.h>
+#include <log/log.h>
+#include "data_types.h"
 
 #define DISP_NCI ProtoDispAdapterDisplayNciPacket
 #define HAL_LOG_TAG "StNfcHal"
 
 extern unsigned char hal_trace_level;
 extern int GetNumValue(const char* name, void* p_value, unsigned long len);
-extern int GetByteArrayValue(const char* name, char* pValue,
-                                    long bufflen, long* len);
+extern int GetByteArrayValue(const char* name, char* pValue, long bufflen,
+                             long* len);
 extern int GetStrValue(const char* name, char* pValue, unsigned long l);
 
 /* #######################
-* Set the log module name in .conf file
-* ########################## */
+ * Set the log module name in .conf file
+ * ########################## */
 #define NAME_STNFC_HAL_LOGLEVEL "STNFC_HAL_LOGLEVEL"
 
 /* #######################
-* Set the logging level
-* ######################## */
-#define STNFC_TRACE_LEVEL_NONE    0x00
-#define STNFC_TRACE_LEVEL_ERROR   0x01
+ * Set the logging level
+ * ######################## */
+#define STNFC_TRACE_LEVEL_NONE 0x00
+#define STNFC_TRACE_LEVEL_ERROR 0x01
 #define STNFC_TRACE_LEVEL_WARNING 0x02
-#define STNFC_TRACE_LEVEL_DEBUG   0x03
+#define STNFC_TRACE_LEVEL_DEBUG 0x03
 #define STNFC_TRACE_LEVEL_VERBOSE 0x04
 
-#define STLOG_HAL_V(...)                                       \
-  {                                                              \
-    if (hal_trace_level >= STNFC_TRACE_LEVEL_VERBOSE)  \
+#define STLOG_HAL_V(...)                                    \
+  {                                                         \
+    if (hal_trace_level >= STNFC_TRACE_LEVEL_VERBOSE)       \
       LOG_PRI(ANDROID_LOG_DEBUG, HAL_LOG_TAG, __VA_ARGS__); \
   }
-#define STLOG_HAL_D(...)                                       \
-  {                                                              \
-    if (hal_trace_level >= STNFC_TRACE_LEVEL_DEBUG)  \
+#define STLOG_HAL_D(...)                                    \
+  {                                                         \
+    if (hal_trace_level >= STNFC_TRACE_LEVEL_DEBUG)         \
       LOG_PRI(ANDROID_LOG_DEBUG, HAL_LOG_TAG, __VA_ARGS__); \
   }
-#define STLOG_HAL_W(...)                                      \
-  {                                                             \
-    if (hal_trace_level >= STNFC_TRACE_LEVEL_WARNING)  \
+#define STLOG_HAL_W(...)                                   \
+  {                                                        \
+    if (hal_trace_level >= STNFC_TRACE_LEVEL_WARNING)      \
       LOG_PRI(ANDROID_LOG_WARN, HAL_LOG_TAG, __VA_ARGS__); \
   }
-#define STLOG_HAL_E(...)                                       \
-  {                                                              \
-    if (hal_trace_level >= STNFC_TRACE_LEVEL_ERROR)  \
+#define STLOG_HAL_E(...)                                    \
+  {                                                         \
+    if (hal_trace_level >= STNFC_TRACE_LEVEL_ERROR)         \
       LOG_PRI(ANDROID_LOG_ERROR, HAL_LOG_TAG, __VA_ARGS__); \
   }
 /*******************************************************************************
@@ -89,7 +89,7 @@ extern int GetStrValue(const char* name, char* pValue, unsigned long l);
 **                  STNFC_TRACE_LEVEL_DEBUG   3     * Debug messages (general)
 **
 *******************************************************************************/
-unsigned char InitializeSTLogLevel()  ;
+unsigned char InitializeSTLogLevel();
 
 void DispHal(const char* title, const void* data, size_t length);
 

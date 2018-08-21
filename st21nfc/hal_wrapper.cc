@@ -80,13 +80,11 @@ bool hal_wrapper_open(st21nfc_dev_t* dev, nfc_stack_callback_t* p_cback,
 }
 
 int hal_wrapper_close(int call_cb) {
-
   STLOG_HAL_D("%s", __func__);
 
   mHalWrapperState = HAL_WRAPPER_STATE_CLOSED;
   I2cCloseLayer();
-  if (call_cb)
-  mHalWrapperCallback(HAL_NFC_CLOSE_CPLT_EVT, HAL_NFC_STATUS_OK);
+  if (call_cb) mHalWrapperCallback(HAL_NFC_CLOSE_CPLT_EVT, HAL_NFC_STATUS_OK);
 
   return 1;
 }
@@ -122,7 +120,8 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
         // Send PROP_NFC_MODE_SET_CMD(ON)
         if (!HalSendDownstreamTimer(mHalHandle, propNfcModeSetCmdOn,
                                     sizeof(propNfcModeSetCmdOn), 100)) {
-          STLOG_HAL_E("NFC-NCI HAL: %s  HalSendDownstreamTimer failed", __func__);
+          STLOG_HAL_E("NFC-NCI HAL: %s  HalSendDownstreamTimer failed",
+                      __func__);
         }
         mHalWrapperState = HAL_WRAPPER_STATE_NFC_ENABLE_ON;
       } else {
@@ -142,7 +141,7 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
         // Send CORE_INIT_CMD
         STLOG_HAL_V("%s - Sending CORE_INIT_CMD", __func__);
         if (!HalSendDownstream(mHalHandle, coreInitCmd, sizeof(coreInitCmd))) {
-           STLOG_HAL_E("NFC-NCI HAL: %s  SendDownstream failed", __func__);
+          STLOG_HAL_E("NFC-NCI HAL: %s  SendDownstream failed", __func__);
         }
       }
       // CORE_INIT_RSP
@@ -153,13 +152,11 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
       }
       break;
     case HAL_WRAPPER_STATE_READY:
-    if (!((p_data[0] == 0x60) && (p_data[3] == 0xa0)))
-    {
-      mHalWrapperDataCallback(data_len, p_data);
-  }
-  else {
-	   STLOG_HAL_V("%s - Core reset notification - Nfc mode ", __func__);
-  }
+      if (!((p_data[0] == 0x60) && (p_data[3] == 0xa0))) {
+        mHalWrapperDataCallback(data_len, p_data);
+      } else {
+        STLOG_HAL_V("%s - Core reset notification - Nfc mode ", __func__);
+      }
       break;
   }
 }
@@ -181,9 +178,9 @@ static void halWrapperCallback(uint8_t event, uint8_t event_status) {
       if (event == HAL_WRAPPER_TIMEOUT_EVT) {
         // timeout
         // Send CORE_INIT_CMD
-          STLOG_HAL_V("%s - Sending CORE_INIT_CMD", __func__);
+        STLOG_HAL_V("%s - Sending CORE_INIT_CMD", __func__);
         if (!HalSendDownstream(mHalHandle, coreInitCmd, sizeof(coreInitCmd))) {
-            STLOG_HAL_E("NFC-NCI HAL: %s  SendDownstream failed", __func__);
+          STLOG_HAL_E("NFC-NCI HAL: %s  SendDownstream failed", __func__);
         }
         return;
       }
