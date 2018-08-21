@@ -16,22 +16,20 @@
  *
  *
  ******************************************************************************/
- 
+
 #ifndef _STNFC_HAL_API_H_
 #define _STNFC_HAL_API_H_
 
-#include <hardware/nfc.h>
 #include <android/hardware/nfc/1.1/INfc.h>
 #include <android/hardware/nfc/1.1/types.h>
+#include <hardware/nfc.h>
 
 using ::android::hardware::nfc::V1_1::NfcConfig;
 
-
 int StNfc_hal_open(nfc_stack_callback_t* p_cback,
-             nfc_stack_data_callback_t* p_data_cback);
-int StNfc_hal_write(uint16_t data_len,
-                     const uint8_t* p_data);
-int StNfc_hal_core_initialized( uint8_t* p_core_init_rsp_params);
+                   nfc_stack_data_callback_t* p_data_cback);
+int StNfc_hal_write(uint16_t data_len, const uint8_t* p_data);
+int StNfc_hal_core_initialized(uint8_t* p_core_init_rsp_params);
 
 int StNfc_hal_pre_discover();
 
