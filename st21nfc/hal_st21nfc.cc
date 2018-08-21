@@ -43,7 +43,7 @@ typedef struct {
   HALHANDLE hHAL;
 } st21nfc_dev_t;
 
-const char* halVersion = "ST21NFC HAL1.1 Version 3.1.1";
+const char* halVersion = "ST21NFC HAL1.1 Version 3.1.2";
 uint8_t cmd_set_nfc_mode_enable[] = {0x2f, 0x02, 0x02, 0x02, 0x01};
 uint8_t hal_is_closed = 1;
 pthread_mutex_t hal_mtx = PTHREAD_MUTEX_INITIALIZER;
