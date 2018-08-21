@@ -80,7 +80,7 @@ static void* I2cWorkerThread(void* arg)
 {
     bool closeThread = false;
     HALHANDLE hHAL = (HALHANDLE)arg;
-    STLOG_HAL_V("echo thread started...\n");
+    STLOG_HAL_D("echo thread started...\n");
     bool readOk= false;
 
     do {
@@ -92,7 +92,7 @@ static void* I2cWorkerThread(void* arg)
         event_table[1].events = POLLIN;
         event_table[1].revents = 0;
 
-        STLOG_HAL_D("echo thread go to sleep...\n");
+        STLOG_HAL_V("echo thread go to sleep...\n");
 
         int poll_status = poll(event_table, 2, -1);
 
@@ -102,7 +102,7 @@ static void* I2cWorkerThread(void* arg)
         }
 
         if (event_table[0].revents & POLLIN) {
-            STLOG_HAL_D("echo thread wakeup from chip...\n");
+            STLOG_HAL_V("echo thread wakeup from chip...\n");
 
             uint8_t buffer[300];
 
@@ -234,7 +234,7 @@ bool I2cOpenLayer(void* dev, HAL_CALLBACK callb, HALHANDLE* pHandle)
       (void) pthread_mutex_lock(&i2ctransport_mtx);
     fidI2c = open("/dev/st21nfc", O_RDWR);
     if (fidI2c < 0) {
-        STLOG_HAL_W("unable to open /dev/st21nfc\n");
+        STLOG_HAL_W("unable to open /dev/st21nfc  (%s) \n", strerror(errno));
         (void) pthread_mutex_unlock(&i2ctransport_mtx);
         return false;
     }
