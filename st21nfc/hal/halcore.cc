@@ -761,7 +761,7 @@ static void* HalWorkerThread(void* arg)
                             break;
 
                         case MSG_RX_DATA:
-                            STLOG_HAL_D("received new data from CLF\n");
+                            STLOG_HAL_V("received new data from CLF\n");
                             HalOnNewUpstreamFrame(inst, (unsigned char *)msg.payload, msg.length);
                             break;
 
