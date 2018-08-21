@@ -17,11 +17,8 @@
  *
  ******************************************************************************/
 
-
-
 #ifndef __CONFIG_H
 #define __CONFIG_H
-
 
 #define NAME_STNFC_HAL_LOGLEVEL "STNFC_HAL_LOGLEVEL"
 #define NAME_POLL_BAIL_OUT_MODE "POLL_BAIL_OUT_MODE"
@@ -39,6 +36,5 @@
 #define NAME_OFF_HOST_SIM_PIPE_ID "OFF_HOST_SIM_PIPE_ID"
 #define NAME_NFA_PROPRIETARY_CFG "NFA_PROPRIETARY_CFG"
 #define NAME_PRESENCE_CHECK_ALGORITHM "PRESENCE_CHECK_ALGORITHM"
-
 
 #endif

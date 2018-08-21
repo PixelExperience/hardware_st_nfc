@@ -65,68 +65,68 @@
 #define HAL_SLEEP_TIMER_DURATION 500 /* ordinary t1 timeout to resent data */
 
 typedef struct tagHalBuffer {
-    uint8_t data[MAX_BUFFER_SIZE];
-    size_t length;
-    struct tagHalBuffer* next;
+  uint8_t data[MAX_BUFFER_SIZE];
+  size_t length;
+  struct tagHalBuffer* next;
 } HalBuffer;
 
 typedef struct tagThreadMessage {
-    uint32_t command;    /* message type / command */
-    const void* payload; /* ptr to message related data item */
-    size_t length;       /* length of above payload */
-    HalBuffer* buffer;   /* buffer object (optional) */
+  uint32_t command;    /* message type / command */
+  const void* payload; /* ptr to message related data item */
+  size_t length;       /* length of above payload */
+  HalBuffer* buffer;   /* buffer object (optional) */
 } ThreadMesssage;
 
 typedef enum {
-    EVT_RX_DATA = 0,
-    EVT_TX_DATA = 1,
-    // HAL WRAPPER
-    EVT_TIMER = 2,
+  EVT_RX_DATA = 0,
+  EVT_TX_DATA = 1,
+  // HAL WRAPPER
+  EVT_TIMER = 2,
 } HalEvent;
 
 typedef struct tagTimer {
-    struct timespec startTime; /* start time (CLOCK_REALTIME)       */
-    uint32_t duration;         /* timer duration in milliseconds    */
-    bool active;               /* true if timer is currently active */
+  struct timespec startTime; /* start time (CLOCK_REALTIME)       */
+  uint32_t duration;         /* timer duration in milliseconds    */
+  bool active;               /* true if timer is currently active */
 } Timer;
 
 typedef struct tagHalInstance {
-    uint32_t flags;
+  uint32_t flags;
 
-    void* context;
-    HAL_CALLBACK callback;
+  void* context;
+  HAL_CALLBACK callback;
 
-    /* current timeout values */
-    uint32_t timeout;
-    Timer timer;
+  /* current timeout values */
+  uint32_t timeout;
+  Timer timer;
 
-    /* threading and runtime support */
-    bool exitRequest;
-    sem_t semaphore;
-    pthread_t thread;
-    pthread_mutex_t hMutex; /* guards the message ringbuffer */
+  /* threading and runtime support */
+  bool exitRequest;
+  sem_t semaphore;
+  pthread_t thread;
+  pthread_mutex_t hMutex; /* guards the message ringbuffer */
 
-    /* IOBuffers for read/writes */
-    HalBuffer* bufferData;
-    HalBuffer* freeBufferList;
-    HalBuffer* pendingNciList; /* outgoing packages waiting to be processed */
-    HalBuffer* nciBuffer;      /* current buffer in progress */
-    sem_t bufferResourceSem;
+  /* IOBuffers for read/writes */
+  HalBuffer* bufferData;
+  HalBuffer* freeBufferList;
+  HalBuffer* pendingNciList; /* outgoing packages waiting to be processed */
+  HalBuffer* nciBuffer;      /* current buffer in progress */
+  sem_t bufferResourceSem;
 
-    sem_t upstreamBlock;
+  sem_t upstreamBlock;
 
-    /* message ring-buffer */
-    ThreadMesssage ring[HAL_QUEUE_MAX];
-    int ringReadPos;
-    int ringWritePos;
+  /* message ring-buffer */
+  ThreadMesssage ring[HAL_QUEUE_MAX];
+  int ringReadPos;
+  int ringWritePos;
 
-    /* current frame going downstream */
-    uint8_t lastDsFrame[MAX_BUFFER_SIZE];
-    size_t lastDsFrameSize;
+  /* current frame going downstream */
+  uint8_t lastDsFrame[MAX_BUFFER_SIZE];
+  size_t lastDsFrameSize;
 
-    /* current frame from CLF */
-    uint8_t lastUsFrame[MAX_BUFFER_SIZE];
-    size_t lastUsFrameSize;
+  /* current frame from CLF */
+  uint8_t lastUsFrame[MAX_BUFFER_SIZE];
+  size_t lastUsFrameSize;
 
 } HalInstance;
 
