@@ -21,6 +21,7 @@
 #include <errno.h>
 #include <hardware/nfc.h>
 #include <string.h>
+#include <unistd.h>
 #include "android_logmsg.h"
 #include "halcore.h"
 
@@ -42,7 +43,8 @@ typedef enum {
   HAL_WRAPPER_STATE_OPEN,
   HAL_WRAPPER_STATE_OPEN_CPLT,
   HAL_WRAPPER_STATE_NFC_ENABLE_ON,
-  HAL_WRAPPER_STATE_READY
+  HAL_WRAPPER_STATE_READY,
+  HAL_WRAPPER_STATE_CLOSING
 } hal_wrapper_state_e;
 
 static void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data);
@@ -79,10 +81,20 @@ bool hal_wrapper_open(st21nfc_dev_t* dev, nfc_stack_callback_t* p_cback,
   return 1;
 }
 
-int hal_wrapper_close(int call_cb) {
-  STLOG_HAL_D("%s", __func__);
+int hal_wrapper_close(int call_cb, int nfc_mode) {
+  STLOG_HAL_V("%s - Sending PROP_NFC_MODE_SET_CMD(%d)", __func__, nfc_mode);
+  uint8_t propNfcModeSetCmdQb[] = {0x2f, 0x02, 0x02, 0x02, (uint8_t)nfc_mode};
 
-  mHalWrapperState = HAL_WRAPPER_STATE_CLOSED;
+  mHalWrapperState = HAL_WRAPPER_STATE_CLOSING;
+  // Send PROP_NFC_MODE_SET_CMD
+  if (!HalSendDownstreamTimer(mHalHandle, propNfcModeSetCmdQb,
+                              sizeof(propNfcModeSetCmdQb), 100)) {
+    STLOG_HAL_E("NFC-NCI HAL: %s  HalSendDownstreamTimer failed", __func__);
+    return -1;
+  }
+  // Let the CLF receive and process this
+  usleep(50000);
+
   I2cCloseLayer();
   if (call_cb) mHalWrapperCallback(HAL_NFC_CLOSE_CPLT_EVT, HAL_NFC_STATUS_OK);
 
@@ -156,6 +168,12 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
         mHalWrapperDataCallback(data_len, p_data);
       } else {
         STLOG_HAL_V("%s - Core reset notification - Nfc mode ", __func__);
+      }
+      break;
+    case HAL_WRAPPER_STATE_CLOSING:
+      if ((p_data[0] == 0x4f) && (p_data[1] == 0x02)) {
+        mHalWrapperDataCallback(data_len, p_data);
+        mHalWrapperState = HAL_WRAPPER_STATE_CLOSED;
       }
       break;
   }
