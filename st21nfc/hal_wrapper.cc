@@ -54,6 +54,7 @@ nfc_stack_callback_t* mHalWrapperCallback = NULL;
 nfc_stack_data_callback_t* mHalWrapperDataCallback = NULL;
 hal_wrapper_state_e mHalWrapperState = HAL_WRAPPER_STATE_CLOSED;
 HALHANDLE mHalHandle = NULL;
+bool mHciCreditLent = false;
 
 bool hal_wrapper_open(st21nfc_dev_t* dev, nfc_stack_callback_t* p_cback,
                       nfc_stack_data_callback_t* p_data_cback,
@@ -63,6 +64,7 @@ bool hal_wrapper_open(st21nfc_dev_t* dev, nfc_stack_callback_t* p_cback,
   STLOG_HAL_D("%s", __func__);
 
   mHalWrapperState = HAL_WRAPPER_STATE_OPEN;
+  mHciCreditLent = false;
 
   mHalWrapperCallback = p_cback;
   mHalWrapperDataCallback = p_data_cback;
@@ -159,12 +161,33 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
       // CORE_INIT_RSP
       else if ((p_data[0] == 0x40) && (p_data[1] == 0x01)) {
         STLOG_HAL_D("%s - NFC mode enabled", __func__);
+        // Do we need to lend a credit ?
+        if (p_data[13] == 0x00) {
+          STLOG_HAL_D("%s - 1 credit lent", __func__);
+          p_data[13] = 0x01;
+          mHciCreditLent = true;
+        }
         mHalWrapperState = HAL_WRAPPER_STATE_READY;
         mHalWrapperDataCallback(data_len, p_data);
       }
       break;
     case HAL_WRAPPER_STATE_READY:
       if (!((p_data[0] == 0x60) && (p_data[3] == 0xa0))) {
+        if (mHciCreditLent && (p_data[0] == 0x60) && (p_data[1] == 0x06)) {
+          if (p_data[4] == 0x01) {  // HCI connection
+            mHciCreditLent = false;
+            STLOG_HAL_D("%s - credit returned", __func__);
+            if (p_data[5] == 0x01) {
+              // no need to send this.
+              break;
+            } else {
+              if (p_data[5] != 0x00 && p_data[5] != 0xFF) {
+                // send with 1 less
+                p_data[5]--;
+              }
+            }
+          }
+        }
         mHalWrapperDataCallback(data_len, p_data);
       } else {
         STLOG_HAL_V("%s - Core reset notification - Nfc mode ", __func__);
