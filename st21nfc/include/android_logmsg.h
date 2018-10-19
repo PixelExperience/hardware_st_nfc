@@ -42,6 +42,7 @@ extern int GetStrValue(const char* name, char* pValue, unsigned long l);
  * Set the log module name in .conf file
  * ########################## */
 #define NAME_STNFC_HAL_LOGLEVEL "STNFC_HAL_LOGLEVEL"
+#define NAME_CE_ON_SWITCH_OFF_STATE "CE_ON_SWITCH_OFF_STATE"
 
 /* #######################
  * Set the logging level

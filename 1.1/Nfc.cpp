@@ -88,7 +88,7 @@ Return<V1_0::NfcStatus> Nfc::close() {
     return V1_0::NfcStatus::FAILED;
   }
 
-  int ret = StNfc_hal_close();
+  int ret = StNfc_hal_close(NFC_MODE_OFF);
 
   if (mCallbackV1_1 != nullptr) {
     mCallbackV1_1->unlinkToDeath(this);
