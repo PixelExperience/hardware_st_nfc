@@ -26,6 +26,10 @@
 
 using ::android::hardware::nfc::V1_1::NfcConfig;
 
+#define NFC_MODE_OFF 0
+#define NFC_MODE_QuickBoot 2
+
+
 int StNfc_hal_open(nfc_stack_callback_t* p_cback,
                    nfc_stack_data_callback_t* p_data_cback);
 int StNfc_hal_write(uint16_t data_len, const uint8_t* p_data);
@@ -33,7 +37,7 @@ int StNfc_hal_core_initialized(uint8_t* p_core_init_rsp_params);
 
 int StNfc_hal_pre_discover();
 
-int StNfc_hal_close();
+int StNfc_hal_close(int nfc_mode);
 
 int StNfc_hal_control_granted();
 
