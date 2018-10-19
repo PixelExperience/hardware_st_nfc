@@ -43,13 +43,14 @@ typedef struct {
   nfc_stack_callback_t* p_cback_unwrap;
 } st21nfc_dev_t;
 
-const char* halVersion = "ST21NFC HAL1.1 Version 3.1.7";
+const char* halVersion = "ST21NFC HAL1.1 Version 3.1.8";
 
 uint8_t cmd_set_nfc_mode_enable[] = {0x2f, 0x02, 0x02, 0x02, 0x01};
 uint8_t hal_is_closed = 1;
 pthread_mutex_t hal_mtx = PTHREAD_MUTEX_INITIALIZER;
 st21nfc_dev_t dev;
 uint8_t hal_dta_state = 0;
+int nfc_mode = 0;
 
 using namespace android::hardware::nfc::V1_1;
 using android::hardware::nfc::V1_1::NfcEvent;
@@ -62,7 +63,7 @@ extern bool hal_wrapper_open(st21nfc_dev_t* dev, nfc_stack_callback_t* p_cback,
                              nfc_stack_data_callback_t* p_data_cback,
                              HALHANDLE* pHandle);
 
-extern int hal_wrapper_close(int call_cb);
+extern int hal_wrapper_close(int call_cb, int nfc_mode);
 
 /* Make sure to always post nfc_stack_callback_t in a separate thread.
 This prevents a possible deadlock in upper layer on some sequences.
@@ -276,7 +277,7 @@ int StNfc_hal_open(nfc_stack_callback_t* p_cback,
   (void)pthread_mutex_lock(&hal_mtx);
 
   if (!hal_is_closed) {
-    hal_wrapper_close(0);
+    hal_wrapper_close(0, nfc_mode);
   }
 
   dev.p_cback = p_cback;  // will be replaced by wrapper version
@@ -346,8 +347,8 @@ int StNfc_hal_pre_discover() {
   return 0;  // false if no vendor-specific pre-discovery actions are needed
 }
 
-int StNfc_hal_close() {
-  STLOG_HAL_D("HAL st21nfc: %s", __func__);
+int StNfc_hal_close(int nfc_mode_value) {
+  STLOG_HAL_D("HAL st21nfc: %s nfc_mode = %d", __func__, nfc_mode_value);
 
   /* check if HAL is closed */
   (void)pthread_mutex_lock(&hal_mtx);
@@ -355,7 +356,7 @@ int StNfc_hal_close() {
     (void)pthread_mutex_unlock(&hal_mtx);
     return 1;
   }
-  if (hal_wrapper_close(1) == 0) {
+  if (hal_wrapper_close(1, nfc_mode_value) == 0) {
     hal_is_closed = 1;
     (void)pthread_mutex_unlock(&hal_mtx);
     return 1;
@@ -408,7 +409,8 @@ void StNfc_hal_factoryReset() {
 
 int StNfc_hal_closeForPowerOffCase() {
   STLOG_HAL_D("HAL st21nfc: %s", __func__);
-  return StNfc_hal_close();
+
+  return StNfc_hal_close(nfc_mode);
 }
 
 void StNfc_hal_getConfig(NfcConfig& config) {
@@ -420,6 +422,12 @@ void StNfc_hal_getConfig(NfcConfig& config) {
   long retlen = 0;
 
   memset(&config, 0x00, sizeof(NfcConfig));
+
+  if (GetNumValue(NAME_CE_ON_SWITCH_OFF_STATE, &num, sizeof(num))) {
+    if (num == 0x1) {
+      nfc_mode = 0x2;
+    }
+  }
 
   if (GetNumValue(NAME_POLL_BAIL_OUT_MODE, &num, sizeof(num))) {
     config.nfaPollBailOutMode = num;
