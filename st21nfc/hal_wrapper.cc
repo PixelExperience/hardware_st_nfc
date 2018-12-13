@@ -207,12 +207,11 @@ static void halWrapperCallback(uint8_t event, uint8_t event_status) {
 
   switch (mHalWrapperState) {
     case HAL_WRAPPER_STATE_CLOSED:
-      break;
-
-    case HAL_WRAPPER_STATE_OPEN:
-      break;
-
-    case HAL_WRAPPER_STATE_OPEN_CPLT:
+      if (event == HAL_WRAPPER_TIMEOUT_EVT) {
+        STLOG_HAL_D("NFC-NCI HAL: %s  Timeout. Close anyway", __func__);
+        HalSendDownstreamStopTimer(mHalHandle);
+        return;
+      }
       break;
 
     case HAL_WRAPPER_STATE_NFC_ENABLE_ON:
@@ -225,9 +224,6 @@ static void halWrapperCallback(uint8_t event, uint8_t event_status) {
         }
         return;
       }
-      break;
-
-    case HAL_WRAPPER_STATE_READY:
       break;
 
     default:
