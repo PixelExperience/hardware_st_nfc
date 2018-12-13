@@ -195,8 +195,10 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
       break;
     case HAL_WRAPPER_STATE_CLOSING:
       if ((p_data[0] == 0x4f) && (p_data[1] == 0x02)) {
-        mHalWrapperDataCallback(data_len, p_data);
+        // intercept this expected message, don t forward.
         mHalWrapperState = HAL_WRAPPER_STATE_CLOSED;
+      } else {
+        mHalWrapperDataCallback(data_len, p_data);
       }
       break;
   }
