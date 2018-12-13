@@ -126,8 +126,6 @@ void HalCoreCallback(void* context, uint32_t event, const void* d,
     case HAL_EVENT_TIMER_TIMEOUT:
       STLOG_HAL_D("!! got event HAL_EVENT_TIMER_TIMEOUT \n");
       dev->p_cback(HAL_WRAPPER_TIMEOUT_EVT, HAL_NFC_STATUS_OK);
-
-      //            dev->p_data_cback(0, NULL);
       break;
   }
 }
@@ -313,9 +311,9 @@ void HalDestroy(HALHANDLE hHAL) {
  * @param hHAL HAL handle
  * @param data Data message
  * @param size Message size
- */ bool HalSendDownstreamTimer(HALHANDLE hHAL, const uint8_t* data,
-                                size_t size, uint8_t duration)
-{
+ */
+bool HalSendDownstreamTimer(HALHANDLE hHAL, const uint8_t* data, size_t size,
+                            uint32_t duration) {
   // Send an NCI frame downstream. will
   HalInstance* inst = (HalInstance*)hHAL;
 
