@@ -43,6 +43,7 @@ typedef enum {
   HAL_WRAPPER_STATE_OPEN,
   HAL_WRAPPER_STATE_OPEN_CPLT,
   HAL_WRAPPER_STATE_NFC_ENABLE_ON,
+  HAL_WRAPPER_STATE_PROP_CONFIG,
   HAL_WRAPPER_STATE_READY,
   HAL_WRAPPER_STATE_CLOSING
 } hal_wrapper_state_e;
@@ -103,6 +104,18 @@ int hal_wrapper_close(int call_cb, int nfc_mode) {
   return 1;
 }
 
+void hal_wrapper_send_prop_config(){
+    uint8_t coreSetConfig[] = {0x20, 0x02, 0x07, 0x02, 0xa1, 0x01, 0x19, 0xa2, 0x01, 0x14};
+
+    //Send prop config and merge mode
+    STLOG_HAL_V("%s - Sending CORE_SET_CONFIG(LPS+Merge)", __func__);
+    if (!HalSendDownstream(mHalHandle, coreSetConfig, sizeof(coreSetConfig))) {
+      STLOG_HAL_E("NFC-NCI HAL: %s  SendDownstream failed", __func__);
+    }
+
+    mHalWrapperState = HAL_WRAPPER_STATE_PROP_CONFIG;
+}
+
 void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
   uint8_t propNfcModeSetCmdOn[] = {0x2f, 0x02, 0x02, 0x02, 0x01};
   uint8_t coreInitCmd[] = {0x20, 0x01, 0x02, 0x00, 0x00};
@@ -142,6 +155,7 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
         mHalWrapperDataCallback(data_len, p_data);
       }
       break;
+
     case HAL_WRAPPER_STATE_NFC_ENABLE_ON:  // 3
       // PROP_NFC_MODE_SET_RSP
       if ((p_data[0] == 0x4f) && (p_data[1] == 0x02)) {
@@ -167,11 +181,39 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
           p_data[13] = 0x01;
           mHciCreditLent = true;
         }
+
         mHalWrapperState = HAL_WRAPPER_STATE_READY;
         mHalWrapperDataCallback(data_len, p_data);
       }
       break;
-    case HAL_WRAPPER_STATE_READY:
+
+    case HAL_WRAPPER_STATE_PROP_CONFIG: //4
+      if ((p_data[0] == 0x40) && (p_data[1] == 0x02)) {
+        STLOG_HAL_V(
+                "%s - Received config RSP, deliver CORE_INIT_RSP to upper layer",
+                __func__);
+
+        mHalWrapperCallback(HAL_NFC_POST_INIT_CPLT_EVT, HAL_NFC_STATUS_OK);
+        mHalWrapperState = HAL_WRAPPER_STATE_READY;
+      } else if (mHciCreditLent && (p_data[0] == 0x60) && (p_data[1] == 0x06)) {
+        if (p_data[4] == 0x01) {  // HCI connection
+          mHciCreditLent = false;
+          STLOG_HAL_D("%s - credit returned", __func__);
+          if (p_data[5] == 0x01) {
+            // no need to send this.
+            break;
+          } else {
+            if (p_data[5] != 0x00 && p_data[5] != 0xFF) {
+              // send with 1 less
+              p_data[5]--;
+            }
+          }
+        }
+        mHalWrapperDataCallback(data_len, p_data);
+      }
+      break;
+
+    case HAL_WRAPPER_STATE_READY://5
       if (!((p_data[0] == 0x60) && (p_data[3] == 0xa0))) {
         if (mHciCreditLent && (p_data[0] == 0x60) && (p_data[1] == 0x06)) {
           if (p_data[4] == 0x01) {  // HCI connection
@@ -193,7 +235,8 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
         STLOG_HAL_V("%s - Core reset notification - Nfc mode ", __func__);
       }
       break;
-    case HAL_WRAPPER_STATE_CLOSING:
+
+    case HAL_WRAPPER_STATE_CLOSING://6
       if ((p_data[0] == 0x4f) && (p_data[1] == 0x02)) {
         // intercept this expected message, don t forward.
         mHalWrapperState = HAL_WRAPPER_STATE_CLOSED;
