@@ -43,7 +43,7 @@ typedef struct {
   nfc_stack_callback_t* p_cback_unwrap;
 } st21nfc_dev_t;
 
-const char* halVersion = "ST21NFC HAL1.1 Version 3.1.10";
+const char* halVersion = "ST21NFC HAL1.1 Version 3.1.11";
 
 uint8_t cmd_set_nfc_mode_enable[] = {0x2f, 0x02, 0x02, 0x02, 0x01};
 uint8_t hal_is_closed = 1;
@@ -371,7 +371,7 @@ int StNfc_hal_close(int nfc_mode_value) {
     return -1;  // We are doomed, stop it here, NOW !
   }
 
-  usleep(2000);  // give 2ms for the callback thread to pass the binder
+  usleep(10000);  // give 10ms for the callback thread to pass the binder
   STLOG_HAL_D("HAL st21nfc: %s close", __func__);
   return 0;
 }
