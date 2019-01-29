@@ -52,26 +52,30 @@ extern int GetStrValue(const char* name, char* pValue, unsigned long l);
 #define STNFC_TRACE_LEVEL_WARNING 0x02
 #define STNFC_TRACE_LEVEL_DEBUG 0x03
 #define STNFC_TRACE_LEVEL_VERBOSE 0x04
+#define STNFC_TRACE_LEVEL_MASK 0x0F
+#define STNFC_TRACE_FLAG_PRIVACY 0x10
 
 #define STLOG_HAL_V(...)                                    \
   {                                                         \
-    if (hal_trace_level >= STNFC_TRACE_LEVEL_VERBOSE)       \
+    if ((hal_trace_level & STNFC_TRACE_LEVEL_MASK) >=       \
+        STNFC_TRACE_LEVEL_VERBOSE)                          \
       LOG_PRI(ANDROID_LOG_DEBUG, HAL_LOG_TAG, __VA_ARGS__); \
   }
-#define STLOG_HAL_D(...)                                    \
-  {                                                         \
-    if (hal_trace_level >= STNFC_TRACE_LEVEL_DEBUG)         \
-      LOG_PRI(ANDROID_LOG_DEBUG, HAL_LOG_TAG, __VA_ARGS__); \
+#define STLOG_HAL_D(...)                                                       \
+  {                                                                            \
+    if ((hal_trace_level & STNFC_TRACE_LEVEL_MASK) >= STNFC_TRACE_LEVEL_DEBUG) \
+      LOG_PRI(ANDROID_LOG_DEBUG, HAL_LOG_TAG, __VA_ARGS__);                    \
   }
 #define STLOG_HAL_W(...)                                   \
   {                                                        \
-    if (hal_trace_level >= STNFC_TRACE_LEVEL_WARNING)      \
+    if ((hal_trace_level & STNFC_TRACE_LEVEL_MASK) >=      \
+        STNFC_TRACE_LEVEL_WARNING)                         \
       LOG_PRI(ANDROID_LOG_WARN, HAL_LOG_TAG, __VA_ARGS__); \
   }
-#define STLOG_HAL_E(...)                                    \
-  {                                                         \
-    if (hal_trace_level >= STNFC_TRACE_LEVEL_ERROR)         \
-      LOG_PRI(ANDROID_LOG_ERROR, HAL_LOG_TAG, __VA_ARGS__); \
+#define STLOG_HAL_E(...)                                                       \
+  {                                                                            \
+    if ((hal_trace_level & STNFC_TRACE_LEVEL_MASK) >= STNFC_TRACE_LEVEL_ERROR) \
+      LOG_PRI(ANDROID_LOG_ERROR, HAL_LOG_TAG, __VA_ARGS__);                    \
   }
 /*******************************************************************************
 **
