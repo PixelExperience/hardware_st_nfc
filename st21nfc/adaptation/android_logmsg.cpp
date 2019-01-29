@@ -57,13 +57,27 @@ void DispHal(const char* title, const void* data, size_t length) {
   char line[100];
   size_t i, k;
   bool first_line = true;
+  bool privacy = false;
+
+  if (hal_trace_level & STNFC_TRACE_FLAG_PRIVACY) {
+    if ((length > 3) &&
+        // DATA message
+        (((d[0] & 0xE0) == 0) ||
+         // routing table contains the AIDs
+         ((d[0] == 0x21) && (d[1] == 0x01)) ||
+         // NTF showing which AID was selected
+         ((d[0] == 0x61) && (d[1] == 0x09)))) {
+      // We hide the payload for GSMA TS27 15.9.3.2.*
+      privacy = true;
+    }
+  }
 
   line[0] = 0;
   if (length == 0) {
     STLOG_HAL_D("%s", title);
     return;
   }
-  for (i = 0, k = 0; i < length; i++, k++) {
+  for (i = 0, k = 0; i < (privacy ? 3 : length); i++, k++) {
     if (k > 31) {
       k = 0;
       if (first_line == true) {
@@ -81,6 +95,10 @@ void DispHal(const char* title, const void* data, size_t length) {
       line[k] = 0;
     }
     sprintf(&line[k * 3], "%02x ", d[i]);
+  }
+
+  if (privacy) {
+    sprintf(&line[k * 3], "(hidden)");
   }
 
   if (first_line == true) {
