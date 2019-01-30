@@ -20,12 +20,11 @@
 #ifndef _STNFC_HAL_API_H_
 #define _STNFC_HAL_API_H_
 
+#include <android/hardware/nfc/1.1/INfc.h>
+#include <android/hardware/nfc/1.1/types.h>
 #include <hardware/nfc.h>
-#include <android/hardware/nfc/1.2/INfc.h>
-#include <android/hardware/nfc/1.2/types.h>
 
-//using ::android::hardware::nfc::V1_1::NfcConfig;
-using ::android::hardware::nfc::V1_2::NfcConfig;
+using ::android::hardware::nfc::V1_1::NfcConfig;
 
 #define NFC_MODE_OFF 0
 #define NFC_MODE_QuickBoot 2
@@ -48,7 +47,6 @@ void StNfc_hal_factoryReset();
 
 int StNfc_hal_closeForPowerOffCase();
 
-void StNfc_hal_getConfig(android::hardware::nfc::V1_1::NfcConfig& config);
-void StNfc_hal_getConfig_1_2(NfcConfig& config);
+void StNfc_hal_getConfig(NfcConfig& config);
 
 #endif /* _STNFC_HAL_API_H_ */
