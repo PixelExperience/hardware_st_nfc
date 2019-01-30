@@ -53,7 +53,6 @@ uint8_t hal_dta_state = 0;
 int nfc_mode = 0;
 
 using namespace android::hardware::nfc::V1_1;
-using namespace android::hardware::nfc::V1_2;
 using android::hardware::nfc::V1_1::NfcEvent;
 
 /*
@@ -417,7 +416,7 @@ int StNfc_hal_closeForPowerOffCase() {
   return StNfc_hal_close(nfc_mode);
 }
 
-void StNfc_hal_getConfig(android::hardware::nfc::V1_1::NfcConfig& config) {
+void StNfc_hal_getConfig(NfcConfig& config) {
   STLOG_HAL_D("HAL st21nfc: %s", __func__);
   unsigned long num = 0;
   std::array<uint8_t, 10> buffer;
@@ -425,7 +424,7 @@ void StNfc_hal_getConfig(android::hardware::nfc::V1_1::NfcConfig& config) {
   buffer.fill(0);
   long retlen = 0;
 
-  memset(&config, 0x00, sizeof(android::hardware::nfc::V1_1::NfcConfig));
+  memset(&config, 0x00, sizeof(NfcConfig));
 
   if (GetNumValue(NAME_CE_ON_SWITCH_OFF_STATE, &num, sizeof(num))) {
     if (num == 0x1) {
@@ -486,39 +485,5 @@ void StNfc_hal_getConfig(android::hardware::nfc::V1_1::NfcConfig& config) {
   }
   if (GetNumValue(NAME_PRESENCE_CHECK_ALGORITHM, &num, sizeof(num))) {
     config.presenceCheckAlgorithm = (PresenceCheckAlgorithm)num;
-  }
-}
-
-void StNfc_hal_getConfig_1_2(android::hardware::nfc::V1_2::NfcConfig& config) {
-  STLOG_HAL_D("HAL st21nfc: %s", __func__);
-  unsigned long num = 0;
-  std::array<uint8_t, 10> buffer;
-
-  buffer.fill(0);
-  long retlen = 0;
-
-  memset(&config, 0x00, sizeof(android::hardware::nfc::V1_2::NfcConfig));
-
-  StNfc_hal_getConfig(config.v1_1);
-
-  if (GetByteArrayValue(NAME_OFFHOST_ROUTE_UICC, (char*) buffer.data(),
-                        buffer.size(), &retlen)) {
-    config.offHostRouteUicc.resize(retlen);
-    for (int i = 0; i < retlen; i++) {
-      config.offHostRouteUicc[i] = buffer[i];
-    }
-  }
-
-  if (GetByteArrayValue(NAME_OFFHOST_ROUTE_ESE, (char*) buffer.data(),
-                        buffer.size(), &retlen)) {
-    config.offHostRouteEse.resize(retlen);
-    for (int i = 0; i < retlen; i++) {
-      config.offHostRouteEse[i] = buffer[i];
-    }
-  }
-
-  if (GetNumValue(NAME_DEFAULT_ISODEP_ROUTE, &num, sizeof(num))) {
-    config.defaultIsoDepRoute = num;
-
   }
 }
