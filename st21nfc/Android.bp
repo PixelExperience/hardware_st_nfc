@@ -12,7 +12,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 cc_library_shared {
     name: "nfc_nci.st21nfc.default",
     defaults: ["hidl_defaults"],
@@ -26,27 +25,25 @@ cc_library_shared {
     ],
 
     srcs: [
-        "st21nfc/adaptation/android_logmsg.cpp",
-        "st21nfc/adaptation/config.cpp",
-        "st21nfc/adaptation/i2clayer.cc",
-        "st21nfc/hal/halcore.cc",
-        "st21nfc/hal_wrapper.cc",
-        "st21nfc/hal_st21nfc.cc",
+        "adaptation/android_logmsg.cpp",
+        "adaptation/config.cpp",
+        "adaptation/i2clayer.cc",
+        "hal/halcore.cc",
+        "hal_wrapper.cc",
     ],
 
     local_include_dirs: [
-        "st21nfc/gki/common",
-        "st21nfc/gki/ulinux",
-        "st21nfc/hal",
-        "st21nfc/include",
+        "gki/common",
+        "gki/ulinux",
+        "hal",
+        "include",
     ],
 
     export_include_dirs: [
-        "st21nfc/include",
+        "include",
+        "gki/ulinux",
     ],
     shared_libs: [
-        "android.hardware.nfc@1.0",
-        "android.hardware.nfc@1.1",
         "libbase",
         "libcutils",
         "libhardware",
@@ -55,31 +52,5 @@ cc_library_shared {
         "libhidltransport",
         "liblog",
         "libutils",
-    ],
-}
-
-cc_binary {
-    name: "android.hardware.nfc@1.1-service.st",
-    defaults: ["hidl_defaults"],
-    proprietary: true,
-    init_rc: ["1.1/android.hardware.nfc@1.1-service.st.rc"],
-    relative_install_path: "hw",
-    srcs: [
-        "1.1/StNfcService.cpp",
-        "1.1/Nfc.cpp",
-    ],
-
-    shared_libs: [
-        "nfc_nci.st21nfc.default",
-        "libbase",
-        "libcutils",
-        "libhardware",
-        "liblog",
-        "libutils",
-        "android.hardware.nfc@1.0",
-        "android.hardware.nfc@1.1",
-        "libhidlbase",
-        "libhidltransport",
-        "libhwbinder",
     ],
 }
