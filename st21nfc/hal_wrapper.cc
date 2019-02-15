@@ -54,6 +54,13 @@ uint8_t mFwUpdateResMask = 0;
 static const uint8_t ApduGetAtr[] = {0x2F, 0x04, 0x05, 0x80,
                                      0x8A, 0x00, 0x00, 0x04};
 
+static const uint8_t nciHeaderPropSetConfig[9] = {0x2F, 0x02, 0x98, 0x04, 0x00,
+                                                  0x14, 0x01, 0x00, 0x92};
+static uint8_t nciPropEnableFwDbgTraces[256];
+static uint8_t nciPropGetFwDbgTracesConfig[] = {0x2F, 0x02, 0x05, 0x03,
+                                                0x00, 0x14, 0x01, 0x00};
+bool mReadFwConfigDone = false;
+
 bool mHciCreditLent = false;
 
 bool hal_wrapper_open(st21nfc_dev_t* dev, nfc_stack_callback_t* p_cback,
@@ -69,6 +76,7 @@ bool hal_wrapper_open(st21nfc_dev_t* dev, nfc_stack_callback_t* p_cback,
 
   mHalWrapperState = HAL_WRAPPER_STATE_OPEN;
   mHciCreditLent = false;
+  mReadFwConfigDone = false;
 
   mHalWrapperCallback = p_cback;
   mHalWrapperDataCallback = p_data_cback;
@@ -124,6 +132,7 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
   uint8_t propNfcModeSetCmdOn[] = {0x2f, 0x02, 0x02, 0x02, 0x01};
   uint8_t coreInitCmd[] = {0x20, 0x01, 0x02, 0x00, 0x00};
   uint8_t coreResetCmd[] = {0x20, 0x00, 0x01, 0x01};
+  unsigned long num = 0;
 
   switch (mHalWrapperState) {
     case HAL_WRAPPER_STATE_CLOSED:  // 0
@@ -254,13 +263,14 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
                   __func__);
       // CORE_SET_CONFIG_RSP
       if ((p_data[0] == 0x40) && (p_data[1] == 0x02)) {
-        STLOG_HAL_V(
-            "%s - Received config RSP, deliver CORE_INIT_RSP to upper layer",
-            __func__);
-
-        mHalWrapperCallback(HAL_NFC_POST_INIT_CPLT_EVT, HAL_NFC_STATUS_OK);
-        mHalWrapperState = HAL_WRAPPER_STATE_READY;
+        STLOG_HAL_V("%s - Received config RSP, read FW dDBG config", __func__);
+        if (!HalSendDownstream(mHalHandle, nciPropGetFwDbgTracesConfig,
+                               sizeof(nciPropGetFwDbgTracesConfig))) {
+          STLOG_HAL_E("%s - SendDownstream failed", __func__);
+        }
+        mReadFwConfigDone = true;
       } else if (mHciCreditLent && (p_data[0] == 0x60) && (p_data[1] == 0x06)) {
+        // CORE_CONN_CREDITS_NTF
         if (p_data[4] == 0x01) {  // HCI connection
           mHciCreditLent = false;
           STLOG_HAL_D("%s - credit returned", __func__);
@@ -275,6 +285,51 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
           }
         }
         mHalWrapperDataCallback(data_len, p_data);
+      } else if (p_data[0] == 0x4f) {
+        // PROP_RSP
+        if (mReadFwConfigDone == true) {
+          mReadFwConfigDone = false;
+
+          // NFC_STATUS_OK
+          if (p_data[3] == 0x00) {
+            bool confNeeded = false;
+
+            // Check if FW DBG shall be set
+            if (GetNumValue(NAME_STNFC_FW_DEBUG_ENABLED, &num, sizeof(num))) {
+              // If conf file indicate set needed and not yet enabled
+              if ((num == 1) && (p_data[7] == 0x00)) {
+                STLOG_HAL_D("%s - FW DBG traces enabling needed", __func__);
+                nciPropEnableFwDbgTraces[9] = 0x01;
+                confNeeded = true;
+              } else if ((num == 0) && (p_data[7] == 0x01)) {
+                STLOG_HAL_D("%s - FW DBG traces disabling needed", __func__);
+                nciPropEnableFwDbgTraces[9] = 0x00;
+                confNeeded = true;
+              } else {
+                STLOG_HAL_D("%s - No changes in FW DBG traces config needed",
+                            __func__);
+              }
+
+              if (confNeeded) {
+                memcpy(nciPropEnableFwDbgTraces, nciHeaderPropSetConfig, 9);
+                memcpy(&nciPropEnableFwDbgTraces[10], &p_data[8],
+                       p_data[6] - 1);
+                confNeeded = false;
+
+                if (!HalSendDownstream(mHalHandle, nciPropEnableFwDbgTraces,
+                                       sizeof(nciPropEnableFwDbgTraces))) {
+                  STLOG_HAL_E("%s - SendDownstream failed", __func__);
+                }
+
+                break;
+              }
+            }
+          }
+        }
+
+        // Exit state, all processing done
+        mHalWrapperCallback(HAL_NFC_POST_INIT_CPLT_EVT, HAL_NFC_STATUS_OK);
+        mHalWrapperState = HAL_WRAPPER_STATE_READY;
       }
       break;
 

@@ -47,6 +47,7 @@ extern int GetStrValue(const char* name, char* pValue, unsigned long l);
 #define NAME_STNFC_FW_BIN_NAME "STNFC_FW_BIN_NAME"
 #define NAME_STNFC_FW_CONF_NAME "STNFC_FW_CONF_NAME"
 #define NAME_STNFC_FW_BIN_NAME "STNFC_FW_BIN_NAME"
+#define NAME_STNFC_FW_DEBUG_ENABLED "STNFC_FW_DEBUG_ENABLED"
 
 /* #######################
  * Set the logging level
