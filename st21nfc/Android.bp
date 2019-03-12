@@ -30,6 +30,7 @@ cc_library_shared {
         "adaptation/i2clayer.cc",
         "hal/halcore.cc",
         "hal_wrapper.cc",
+	"hal/hal_fd.cc",
     ],
 
     local_include_dirs: [
