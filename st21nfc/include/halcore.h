@@ -43,6 +43,19 @@
 #define HAL_FLAG_NO_DEBUG 0 /* disable debug output */
 #define HAL_FLAG_DEBUG 1    /* enable debug output */
 
+typedef enum {
+  HAL_WRAPPER_STATE_CLOSED,
+  HAL_WRAPPER_STATE_OPEN,
+  HAL_WRAPPER_STATE_OPEN_CPLT,
+  HAL_WRAPPER_STATE_NFC_ENABLE_ON,
+  HAL_WRAPPER_STATE_PROP_CONFIG,
+  HAL_WRAPPER_STATE_READY,
+  HAL_WRAPPER_STATE_CLOSING,
+  HAL_WRAPPER_STATE_EXIT_HIBERNATE_INTERNAL,
+  HAL_WRAPPER_STATE_UPDATE,
+  HAL_WRAPPER_STATE_APPLY_CUSTOM_PARAM,
+} hal_wrapper_state_e;
+
 /* callback function to communicate from HAL Core with the outside world */
 typedef void (*HAL_CALLBACK)(void* context, uint32_t event, const void* data,
                              size_t length);
@@ -66,4 +79,6 @@ bool HalSendDownstreamStopTimer(HALHANDLE hHAL);
 /* send a complete HDLC frame from the CLF to the HOST */
 bool HalSendUpstream(HALHANDLE hHAL, const uint8_t* data, size_t size);
 
+void hal_wrapper_set_state(hal_wrapper_state_e new_wrapper_state);
+void I2cResetPulse();
 #endif

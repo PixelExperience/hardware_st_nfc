@@ -281,6 +281,18 @@ void I2cCloseLayer() {
   threadHandle = (pthread_t)NULL;
   (void)pthread_mutex_unlock(&i2ctransport_mtx);
 }
+
+/**
+ * Terminates the I2C layer.
+ */
+void I2cResetPulse() {
+  ALOGD("%s: enter\n", __func__);
+
+  (void)pthread_mutex_lock(&i2ctransport_mtx);
+
+  i2cResetPulse(fidI2c);
+  (void)pthread_mutex_unlock(&i2ctransport_mtx);
+}
 /**************************************************************************************************
  *
  *                                      Private API Definition
