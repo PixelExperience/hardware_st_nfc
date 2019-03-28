@@ -138,9 +138,11 @@ static void* I2cWorkerThread(void* arg) {
 
           if (readOk == true) {
             int remaining = buffer[2];
-
-            // read and pass to HALCore
-            bytesRead = i2cRead(fidI2c, buffer + 3, remaining);
+            bytesRead = 0;
+            if (remaining != 0) {
+              // read and pass to HALCore
+              bytesRead = i2cRead(fidI2c, buffer + 3, remaining);
+            }
             if (bytesRead == remaining) {
               DispHal("RX DATA", buffer, 3 + bytesRead);
               HalSendUpstream(hHAL, buffer, 3 + bytesRead);
