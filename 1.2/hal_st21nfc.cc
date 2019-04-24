@@ -43,7 +43,7 @@ typedef struct {
   nfc_stack_callback_t* p_cback_unwrap;
 } st21nfc_dev_t;
 
-const char* halVersion = "ST21NFC HAL1.2 Version 3.2.1";
+const char* halVersion = "ST21NFC HAL1.2 Version 3.2.2";
 
 uint8_t cmd_set_nfc_mode_enable[] = {0x2f, 0x02, 0x02, 0x02, 0x01};
 uint8_t hal_is_closed = 1;
@@ -413,8 +413,11 @@ void StNfc_hal_factoryReset() {
 
 int StNfc_hal_closeForPowerOffCase() {
   STLOG_HAL_D("HAL st21nfc: %s", __func__);
-
-  return StNfc_hal_close(nfc_mode);
+  if (nfc_mode == 1) {
+    return 0;
+  } else {
+    return StNfc_hal_close(nfc_mode);
+  }
 }
 
 void StNfc_hal_getConfig(android::hardware::nfc::V1_1::NfcConfig& config) {
@@ -429,7 +432,7 @@ void StNfc_hal_getConfig(android::hardware::nfc::V1_1::NfcConfig& config) {
 
   if (GetNumValue(NAME_CE_ON_SWITCH_OFF_STATE, &num, sizeof(num))) {
     if (num == 0x1) {
-      nfc_mode = 0x2;
+      nfc_mode = 0x1;
     }
   }
 
@@ -486,6 +489,12 @@ void StNfc_hal_getConfig(android::hardware::nfc::V1_1::NfcConfig& config) {
   }
   if (GetNumValue(NAME_PRESENCE_CHECK_ALGORITHM, &num, sizeof(num))) {
     config.presenceCheckAlgorithm = (PresenceCheckAlgorithm)num;
+  }
+
+  if (GetNumValue(NAME_STNFC_USB_CHARGING_MODE, &num, sizeof(num))) {
+    if ((num == 1) && (nfc_mode == 0x1)) {
+      nfc_mode = 0x2;
+    }
   }
 }
 

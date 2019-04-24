@@ -27,6 +27,7 @@
 using ::android::hardware::nfc::V1_2::NfcConfig;
 
 #define NFC_MODE_OFF 0
+#define NFC_MODE_ON  1
 #define NFC_MODE_QuickBoot 2
 
 
