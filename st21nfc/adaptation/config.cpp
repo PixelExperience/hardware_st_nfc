@@ -277,7 +277,7 @@ bool CNfcConfig::readConfig(const char* name, bool bResetContent) {
                    (c == ' ' || c == '\r' || c == '\n' || c == '\t')) {
           break;
         } else if (base == 16 &&
-                   (c == ':' || c == '-' || c == ' ' || c == '}')) {
+                   (c == ',' || c == ':' || c == '-' || c == ' ' || c == '}')) {
           if (c == '}') {
             bflag = 0;
           }
