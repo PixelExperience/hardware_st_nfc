@@ -43,7 +43,7 @@ typedef struct {
   nfc_stack_callback_t* p_cback_unwrap;
 } st21nfc_dev_t;
 
-const char* halVersion = "ST21NFC HAL1.2 Version 3.2.2";
+const char* halVersion = "ST21NFC HAL1.2 Version 3.2.3";
 
 uint8_t cmd_set_nfc_mode_enable[] = {0x2f, 0x02, 0x02, 0x02, 0x01};
 uint8_t hal_is_closed = 1;
@@ -66,7 +66,7 @@ extern bool hal_wrapper_open(st21nfc_dev_t* dev, nfc_stack_callback_t* p_cback,
 
 extern int hal_wrapper_close(int call_cb, int nfc_mode);
 
-extern void hal_wrapper_send_prop_config();
+extern void hal_wrapper_send_config();
 
 /* Make sure to always post nfc_stack_callback_t in a separate thread.
 This prevents a possible deadlock in upper layer on some sequences.
@@ -339,7 +339,7 @@ int StNfc_hal_core_initialized(uint8_t* p_core_init_rsp_params) {
   (void)pthread_mutex_lock(&hal_mtx);
   hal_dta_state = *p_core_init_rsp_params;
 
-  hal_wrapper_send_prop_config();
+  hal_wrapper_send_config();
   (void)pthread_mutex_unlock(&hal_mtx);
 
   return 0;  // return != 0 to signal ready immediate
