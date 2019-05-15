@@ -66,7 +66,7 @@ static uint8_t nciPropGetFwDbgTracesConfig[] = {0x2F, 0x02, 0x05, 0x03,
 bool mReadFwConfigDone = false;
 
 bool mHciCreditLent = false;
-
+bool mfactoryReset = false;
 bool ready_flag = 0;
 
 void wait_ready() {
@@ -179,6 +179,10 @@ void hal_wrapper_send_config() {
   hal_wrapper_send_vs_config();
 }
 
+void hal_wrapper_factoryReset() {
+  mfactoryReset = true;
+  STLOG_HAL_V("%s - mfactoryReset = %d", __func__, mfactoryReset);
+}
 void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
   uint8_t propNfcModeSetCmdOn[] = {0x2f, 0x02, 0x02, 0x02, 0x01};
   uint8_t coreInitCmd[] = {0x20, 0x01, 0x02, 0x00, 0x00};
@@ -195,10 +199,20 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
 
       if ((p_data[0] == 0x60) && (p_data[1] == 0x00)) {
         mFwUpdateTaskMask = ft_cmd_HwReset(p_data, &mClfMode);
+
+        if (mfactoryReset == true) {
+          STLOG_HAL_V(
+              "%s - first boot after factory reset detected - start FW update",
+              __func__);
+          if ((mFwUpdateResMask & FW_PATCH_AVAILABLE) &&
+              (mFwUpdateResMask & FW_CUSTOM_PARAM_AVAILABLE)) {
+            mFwUpdateTaskMask = FW_UPDATE_NEEDED | CONF_UPDATE_NEEDED;
+            mfactoryReset = false;
+          }
+        }
         STLOG_HAL_V(
             "%s - mFwUpdateTaskMask = %d,  mClfMode = %d,  mRetryFwDwl = %d",
             __func__, mFwUpdateTaskMask, mClfMode, mRetryFwDwl);
-
         // CLF in MODE LOADER & Update needed.
         if (mClfMode == FT_CLF_MODE_LOADER) {
           HalSendDownstreamStopTimer(mHalHandle);
