@@ -188,6 +188,12 @@ void hal_wrapper_factoryReset() {
   mfactoryReset = true;
   STLOG_HAL_V("%s - mfactoryReset = %d", __func__, mfactoryReset);
 }
+
+void hal_wrapper_update_complete() {
+  STLOG_HAL_V("%s ", __func__);
+  mHalWrapperCallback(HAL_NFC_OPEN_CPLT_EVT, HAL_NFC_STATUS_OK);
+  mHalWrapperState = HAL_WRAPPER_STATE_OPEN_CPLT;
+}
 void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
   uint8_t propNfcModeSetCmdOn[] = {0x2f, 0x02, 0x02, 0x02, 0x01};
   uint8_t coreInitCmd[] = {0x20, 0x01, 0x02, 0x00, 0x00};
@@ -463,6 +469,7 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
     case HAL_WRAPPER_STATE_CLOSING:  // 6
       STLOG_HAL_V("%s - mHalWrapperState = HAL_WRAPPER_STATE_CLOSING",
                   __func__);
+      hal_fd_close();
       if ((p_data[0] == 0x4f) && (p_data[1] == 0x02)) {
         // intercept this expected message, don t forward.
         mHalWrapperState = HAL_WRAPPER_STATE_CLOSED;
