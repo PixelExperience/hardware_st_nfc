@@ -19,6 +19,8 @@
 
 #define LOG_TAG "stnfc@1.2-service.st"
 #include <android/hardware/nfc/1.1/INfc.h>
+#include <cutils/properties.h>
+#include <dlfcn.h>
 
 #include <hidl/LegacySupport.h>
 #include "Nfc.h"
@@ -32,9 +34,31 @@ using android::hardware::joinRpcThreadpool;
 using android::hardware::nfc::V1_2::INfc;
 using android::hardware::nfc::V1_2::implementation::Nfc;
 
+typedef int (*STEseReset)(void);
+
 int main() {
   ALOGD(" ST NFC HAL Service 1.2 is starting.");
   sp<INfc> nfc_service = new Nfc();
+
+  char valueStr[PROPERTY_VALUE_MAX] = {0};
+  int len = property_get("persist.vendor.modem.esim.reset", valueStr, "");
+  if (len > 0) {
+    if (strncmp(valueStr,"needed", 6) == 0) {
+      void* stdll = dlopen("/vendor/lib64/libstreset.so", RTLD_NOW);
+      ALOGE(" ST NFC HAL eSIM Reset starting.");
+      if(stdll) {
+        ALOGE(" Recovery");
+        STEseReset fn = (STEseReset) dlsym(stdll,"reset_start");
+        if(fn){
+          ALOGE("Result=%d", fn());
+        }
+      } else {
+        ALOGE("libstreset.so not found, do nothing.");
+      }
+      ALOGE(" ST NFC HAL eSIM Reset Done.");
+    }
+  }
+  property_set("persist.vendor.modem.esim.reset", "done");
 
   configureRpcThreadpool(1, true /*callerWillJoin*/);
   status_t status = nfc_service->registerAsService();
