@@ -50,6 +50,7 @@
 
 // HAL _WRAPPER
 #define MSG_TX_DATA_TIMER_START 3
+#define MSG_TIMER_START 4
 
 /* number of buffers used for incoming & outgoing data */
 #define NUM_BUFFERS 10

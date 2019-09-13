@@ -74,6 +74,7 @@ bool HalSendDownstream(HALHANDLE hHAL, const uint8_t* data, size_t size);
 // HAL WRAPPER
 bool HalSendDownstreamTimer(HALHANDLE hHAL, const uint8_t* data, size_t size,
                             uint32_t duration);
+bool HalSendDownstreamTimer(HALHANDLE hHAL, uint32_t duration);
 bool HalSendDownstreamStopTimer(HALHANDLE hHAL);
 
 /* send a complete HDLC frame from the CLF to the HOST */
