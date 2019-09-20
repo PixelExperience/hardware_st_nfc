@@ -52,6 +52,8 @@ uint8_t mFwUpdateTaskMask;
 int mRetryFwDwl;
 uint8_t mFwUpdateResMask = 0;
 uint8_t* ConfigBuffer = NULL;
+uint8_t mError_count = 0;
+bool mIsActiveRW = false;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t ready_cond = PTHREAD_COND_INITIALIZER;
 
@@ -68,6 +70,8 @@ bool mReadFwConfigDone = false;
 bool mHciCreditLent = false;
 bool mfactoryReset = false;
 bool ready_flag = 0;
+bool mTimerStarted = false;
+bool forceRecover = false;
 
 void wait_ready() {
   pthread_mutex_lock(&mutex);
@@ -98,6 +102,7 @@ bool hal_wrapper_open(st21nfc_dev_t* dev, nfc_stack_callback_t* p_cback,
   mHalWrapperState = HAL_WRAPPER_STATE_OPEN;
   mHciCreditLent = false;
   mReadFwConfigDone = false;
+  mError_count = 0;
 
   mHalWrapperCallback = p_cback;
   mHalWrapperDataCallback = p_data_cback;
@@ -414,7 +419,41 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
               }
             }
           }
+        } else if ((p_data[0] == 0x6f) && (p_data[1] == 0x05)) {
+          // start timer
+          mTimerStarted = true;
+          HalSendDownstreamTimer(mHalHandle, 1000);
+          mIsActiveRW = true;
+        } else if ((p_data[0] == 0x6f) && (p_data[1] == 0x06)) {
+          // stop timer
+          if (mTimerStarted) {
+            HalSendDownstreamStopTimer(mHalHandle);
+            mTimerStarted = false;
+          }
+          if(mIsActiveRW == true) {
+            mIsActiveRW = false;
+          } else {
+            mError_count ++;
+            STLOG_HAL_E("Error Act -> Act count=%d", mError_count);
+            if(mError_count > 20) {
+              mError_count = 0;
+              STLOG_HAL_E("NFC Recovery Start");
+              mTimerStarted = true;
+              HalSendDownstreamTimer(mHalHandle, 1);
+            }
+          }
+        } else if (((p_data[0] == 0x61) && (p_data[1] == 0x05)) ||
+                   ((p_data[0] == 0x61) && (p_data[1] == 0x03))) {
+          mError_count = 0;
+          // stop timer
+          if (mTimerStarted) {
+            HalSendDownstreamStopTimer(mHalHandle);
+            mTimerStarted = false;
+          }
         }
+        mHalWrapperDataCallback(data_len, p_data);
+      } else if (forceRecover == true) {
+        forceRecover = false;
         mHalWrapperDataCallback(data_len, p_data);
       } else {
         STLOG_HAL_V("%s - Core reset notification - Nfc mode ", __func__);
@@ -454,6 +493,7 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
 
 static void halWrapperCallback(uint8_t event, uint8_t event_status) {
   uint8_t coreInitCmd[] = {0x20, 0x01, 0x02, 0x00, 0x00};
+  uint8_t propNfcModeSetCmdOn[] = {0x2f, 0x02, 0x02, 0x02, 0x01};
 
   switch (mHalWrapperState) {
     case HAL_WRAPPER_STATE_CLOSED:
@@ -493,6 +533,22 @@ static void halWrapperCallback(uint8_t event, uint8_t event_status) {
         resetHandlerState();
         I2cResetPulse();
         mHalWrapperState = HAL_WRAPPER_STATE_OPEN;
+      }
+      break;
+
+    case HAL_WRAPPER_STATE_READY:
+      if (event == HAL_WRAPPER_TIMEOUT_EVT) {
+        if (mTimerStarted) {
+          STLOG_HAL_D("NFC-NCI HAL: %s  Timeout.. Recover", __func__);
+          HalSendDownstreamStopTimer(mHalHandle);
+          mTimerStarted = false;
+          forceRecover = true;
+          if (!HalSendDownstream(mHalHandle, propNfcModeSetCmdOn,
+                                 sizeof(propNfcModeSetCmdOn))) {
+            STLOG_HAL_E("NFC-NCI HAL: %s  SendDownstream failed", __func__);
+          }
+        }
+        return;
       }
       break;
 
