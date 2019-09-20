@@ -343,6 +343,18 @@ bool HalSendDownstreamTimer(HALHANDLE hHAL, const uint8_t* data, size_t size,
   }
 }
 
+bool HalSendDownstreamTimer(HALHANDLE hHAL, uint32_t duration) {
+  HalInstance* inst = (HalInstance*)hHAL;
+
+  ThreadMesssage msg;
+
+  msg.command = MSG_TIMER_START;
+  msg.payload = 0;
+  msg.length = duration;
+  msg.buffer = NULL;
+
+  return HalEnqueueThreadMessage(inst, &msg);
+}
 /**
  * Send an NCI message downstream to HAL protocol layer (DH->NFCC transfer).
  * Block if more than NUM_BUFFERS (10) transfers are outstanding, otherwise will
@@ -745,6 +757,11 @@ static void* HalWorkerThread(void* arg) {
                                     msg.length);
               break;
 
+            case MSG_TIMER_START:
+              // Start timer
+              HalStartTimer(inst, msg.length);
+              STLOG_HAL_D("MSG_TIMER_START \n");
+              break;
             default:
               STLOG_HAL_E("!received unkown thread message?\n");
               break;
