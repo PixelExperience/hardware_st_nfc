@@ -43,7 +43,7 @@ typedef struct {
   nfc_stack_callback_t* p_cback_unwrap;
 } st21nfc_dev_t;
 
-const char* halVersion = "ST21NFC HAL1.1 Version 3.1.15";
+const char* halVersion = "ST21NFC HAL1.1 Version 3.1.16";
 
 uint8_t cmd_set_nfc_mode_enable[] = {0x2f, 0x02, 0x02, 0x02, 0x01};
 uint8_t hal_is_closed = 1;
@@ -408,7 +408,7 @@ int StNfc_hal_power_cycle() {
 
 void StNfc_hal_factoryReset() {
   STLOG_HAL_D("HAL st21nfc: %s", __func__);
-  hal_wrapper_factoryReset();
+  //hal_wrapper_factoryReset();
   // Nothing needed for factory reset in st21nfc case.
 }
 
