@@ -31,8 +31,9 @@ FILE *mCustomFileBin;
 fpos_t mPos;
 fpos_t mPosInit;
 uint8_t mBinData[260];
-bool mRetry = TRUE;
-bool mCustomParamFailed = FALSE;
+bool mRetry = true;
+bool mCustomParamFailed = false;
+bool mCustomParamDone = false;
 uint8_t *pCmd;
 int mFWRecovCount = 0;
 const char *FwType = "generic";
@@ -53,6 +54,7 @@ static const uint8_t ApduExitLoadMode[] = {0x2F, 0x04, 0x06, 0x80, 0xA0,
 
 hal_fd_state_e mHalFDState = HAL_FD_STATE_AUTHENTICATE;
 void SendExitLoadMode(HALHANDLE mmHalHandle);
+extern void hal_wrapper_update_complete();
 
 /**
  * Send a HW reset and decode NCI_CORE_RESET_NTF information
@@ -157,7 +159,7 @@ int hal_fd_init() {
 
 void hal_fd_close() {
   STLOG_HAL_D("  %s -enter", __func__);
-  mCustomParamFailed = FALSE;
+  mCustomParamFailed = false;
   if (mFWInfo != NULL) free(mFWInfo);
   if (mFwFileBin != NULL) fclose(mFwFileBin);
   if (mCustomFileBin != NULL) fclose(mCustomFileBin);
@@ -391,7 +393,7 @@ void UpdateHandler(HALHANDLE mHalHandle, uint16_t data_len, uint8_t *p_data) {
       STLOG_HAL_D("%s - mHalFDState = HAL_FD_STATE_SEND_RAW_APDU", __func__);
       if ((p_data[0] == 0x4f) && (p_data[1] == 0x04)) {
         if ((p_data[data_len - 2] == 0x90) && (p_data[data_len - 1] == 0x00)) {
-          mRetry = TRUE;
+          mRetry = true;
 
           fgetpos(mFwFileBin, &mPos);  // save current position in stream
           if ((fread(mBinData, sizeof(uint8_t), 3, mFwFileBin) == 3) &&
@@ -405,9 +407,9 @@ void UpdateHandler(HALHANDLE mHalHandle, uint16_t data_len, uint8_t *p_data) {
             STLOG_HAL_D("%s - EOF of FW binary", __func__);
             SendExitLoadMode(mHalHandle);
           }
-        } else if (mRetry == TRUE) {
+        } else if (mRetry == true) {
           STLOG_HAL_D("%s - Last Tx was NOK. Retry", __func__);
-          mRetry = FALSE;
+          mRetry = false;
           fsetpos(mFwFileBin, &mPos);
           if ((fread(mBinData, sizeof(uint8_t), 3, mFwFileBin) == 3) &&
               (fread(mBinData + 3, sizeof(uint8_t), mBinData[2], mFwFileBin) ==
@@ -464,47 +466,65 @@ void ApplyCustomParamHandler(HALHANDLE mHalHandle, uint16_t data_len,
       if ((p_data[1] == 0x0) && (p_data[3] == 0x0)) {
         // do nothing
       } else if ((p_data[1] == 0x1) && (p_data[3] == 0x0)) {
-        // CORE_INIT_RSP
-        if ((fread(mBinData, sizeof(uint8_t), 3, mCustomFileBin)) &&
-            (fread(mBinData + 3, sizeof(uint8_t), mBinData[2],
-                   mCustomFileBin))) {
-          if (!HalSendDownstream(mHalHandle, mBinData, mBinData[2] + 3)) {
+        if (mFWInfo->hibernate_exited == 0) {
+          // Send a NFC mode on .
+          if (!HalSendDownstream(mHalHandle, propNfcModeSetCmdOn,
+                                 sizeof(propNfcModeSetCmdOn))) {
             STLOG_HAL_E("%s - SendDownstream failed", __func__);
           }
+          // CORE_INIT_RSP
+        } else if (mFWInfo->hibernate_exited == 1) {
+          if ((fread(mBinData, sizeof(uint8_t), 3, mCustomFileBin)) &&
+              (fread(mBinData + 3, sizeof(uint8_t), mBinData[2],
+                     mCustomFileBin))) {
+            if (!HalSendDownstream(mHalHandle, mBinData, mBinData[2] + 3)) {
+              STLOG_HAL_E("%s - SendDownstream failed", __func__);
+            }
+          }
         }
+
       } else {
         STLOG_HAL_D("%s - Error in custom param application", __func__);
-        mCustomParamFailed = TRUE;
+        mCustomParamFailed = true;
         I2cResetPulse();
         hal_wrapper_set_state(HAL_WRAPPER_STATE_OPEN);
       }
       break;
 
     case 0x4f:
-      if ((fread(mBinData, sizeof(uint8_t), 3, mCustomFileBin) == 3) &&
-          (fread(mBinData + 3, sizeof(uint8_t), mBinData[2], mCustomFileBin) ==
-           mBinData[2])) {
-        if (!HalSendDownstream(mHalHandle, mBinData, mBinData[2] + 3)) {
-          STLOG_HAL_E("%s - SendDownstream failed", __func__);
+      if (mFWInfo->hibernate_exited == 1) {
+        if ((fread(mBinData, sizeof(uint8_t), 3, mCustomFileBin) == 3) &&
+            (fread(mBinData + 3, sizeof(uint8_t), mBinData[2],
+                   mCustomFileBin) == mBinData[2])) {
+          if (!HalSendDownstream(mHalHandle, mBinData, mBinData[2] + 3)) {
+            STLOG_HAL_E("%s - SendDownstream failed", __func__);
+          }
+        } else {
+          STLOG_HAL_D("%s - EOF of custom file", __func__);
+          mCustomParamDone = true;
+          I2cResetPulse();
         }
-      } else {
-        STLOG_HAL_D("%s - EOF of custom file", __func__);
-        I2cResetPulse();
-        hal_wrapper_set_state(HAL_WRAPPER_STATE_OPEN);
-      }
 
-      // Check if an error has occured for PROP_SET_CONFIG_CMD
-      // Only log a warning, do not exit code
-      if (p_data[3] != 0x00) {
-        STLOG_HAL_D("%s - Error in custom file, continue anyway", __func__);
+        // Check if an error has occured for PROP_SET_CONFIG_CMD
+        // Only log a warning, do not exit code
+        if (p_data[3] != 0x00) {
+          STLOG_HAL_D("%s - Error in custom file, continue anyway", __func__);
+        }
       }
       break;
 
     case 0x60:  //
       if (p_data[1] == 0x0) {
+        if (p_data[3] == 0xa0) {
+          mFWInfo->hibernate_exited = 1;
+        }
         if (!HalSendDownstream(mHalHandle, coreInitCmd, sizeof(coreInitCmd))) {
           STLOG_HAL_E("%s - SendDownstream failed", __func__);
         }
+
+      } else if ((p_data[1] == 0x6) && mCustomParamDone) {
+        mCustomParamDone = false;
+        hal_wrapper_update_complete();
       }
       break;
   }
