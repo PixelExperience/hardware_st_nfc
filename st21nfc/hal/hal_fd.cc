@@ -160,9 +160,18 @@ int hal_fd_init() {
 void hal_fd_close() {
   STLOG_HAL_D("  %s -enter", __func__);
   mCustomParamFailed = false;
-  if (mFWInfo != NULL) free(mFWInfo);
-  if (mFwFileBin != NULL) fclose(mFwFileBin);
-  if (mCustomFileBin != NULL) fclose(mCustomFileBin);
+  if (mFWInfo != NULL) {
+    free(mFWInfo);
+    mFWInfo = NULL;
+  }
+  if (mFwFileBin != NULL) {
+    fclose(mFwFileBin);
+    mFwFileBin = NULL;
+  }
+  if (mCustomFileBin != NULL) {
+    fclose(mCustomFileBin);
+    mCustomFileBin = NULL;
+  }
 }
 
 /**
