@@ -103,8 +103,8 @@ int hal_fd_init() {
 
   // Getting information about FW patch, if any
   strcpy(ConfPath, FwPath);
-  strncat(FwPath, fwBinName, sizeof(FwPath));
-  strncat(ConfPath, fwConfName, sizeof(ConfPath));
+  strncat(FwPath, fwBinName, sizeof(FwPath) - strlen(FwPath) - 1);
+  strncat(ConfPath, fwConfName, sizeof(ConfPath) - strlen(ConfPath) - 1);
   STLOG_HAL_D("%s - FW update binary file = %s", __func__, FwPath);
   STLOG_HAL_D("%s - FW config binary file = %s", __func__, ConfPath);
 
