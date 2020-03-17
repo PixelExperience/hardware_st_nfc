@@ -216,9 +216,9 @@ static int async_callback_thread_end() {
       return ret;
     }
 
-    ret = pthread_detach(async_callback_data.thr);
+    ret = pthread_join(async_callback_data.thr, (void**)NULL);
     if (ret != 0) {
-      STLOG_HAL_E("HAL: %s pthread_detach failed", __func__);
+      STLOG_HAL_E("HAL: %s pthread_join failed", __func__);
       return ret;
     }
   }
@@ -376,7 +376,6 @@ int StNfc_hal_close(int nfc_mode_value) {
     return -1;  // We are doomed, stop it here, NOW !
   }
 
-  usleep(10000);  // give 10ms for the callback thread to pass the binder
   STLOG_HAL_D("HAL st21nfc: %s close", __func__);
   return 0;
 }
