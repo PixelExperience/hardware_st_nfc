@@ -199,6 +199,7 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
   uint8_t coreInitCmd[] = {0x20, 0x01, 0x02, 0x00, 0x00};
   uint8_t coreResetCmd[] = {0x20, 0x00, 0x01, 0x01};
   unsigned long num = 0;
+  int nciPropEnableFwDbgTraces_size = sizeof(nciPropEnableFwDbgTraces);
 
   switch (mHalWrapperState) {
     case HAL_WRAPPER_STATE_CLOSED:  // 0
@@ -389,10 +390,14 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
                 memcpy(nciPropEnableFwDbgTraces, nciHeaderPropSetConfig, 9);
                 memcpy(&nciPropEnableFwDbgTraces[10], &p_data[8],
                        p_data[6] - 1);
+                if ((9 + p_data[6]) < sizeof(nciPropEnableFwDbgTraces)) {
+                  nciPropEnableFwDbgTraces_size = 9 + p_data[6];
+                }
+
                 confNeeded = false;
 
                 if (!HalSendDownstream(mHalHandle, nciPropEnableFwDbgTraces,
-                                       sizeof(nciPropEnableFwDbgTraces))) {
+                                       nciPropEnableFwDbgTraces_size)) {
                   STLOG_HAL_E("%s - SendDownstream failed", __func__);
                 }
 
