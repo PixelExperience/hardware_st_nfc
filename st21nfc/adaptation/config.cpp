@@ -419,7 +419,11 @@ bool CNfcConfig::getValue(const char* name, char* pValue, size_t& len) const {
 
   if (pParam->str_len() > 0) {
     memset(pValue, 0, len);
-    if (len > pParam->str_len()) len = pParam->str_len();
+    if (pParam->str_len() > len) {
+      return false;
+    } else {
+      len = pParam->str_len();
+    }
     memcpy(pValue, pParam->str_value(), len);
     return true;
   }
