@@ -433,7 +433,7 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
         } else if ((p_data[0] == 0x6f) && (p_data[1] == 0x05)) {
           // start timer
           mTimerStarted = true;
-          HalSendDownstreamTimer(mHalHandle, 1000);
+          HalSendDownstreamTimer(mHalHandle, 5000);
           mIsActiveRW = true;
         } else if ((p_data[0] == 0x6f) && (p_data[1] == 0x06)) {
           // stop timer
