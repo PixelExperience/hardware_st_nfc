@@ -128,7 +128,7 @@ int hal_wrapper_close(int call_cb, int nfc_mode) {
   mHalWrapperState = HAL_WRAPPER_STATE_CLOSING;
   // Send PROP_NFC_MODE_SET_CMD
   if (!HalSendDownstreamTimer(mHalHandle, propNfcModeSetCmdQb,
-                              sizeof(propNfcModeSetCmdQb), 100)) {
+                              sizeof(propNfcModeSetCmdQb), 40)) {
     STLOG_HAL_E("NFC-NCI HAL: %s  HalSendDownstreamTimer failed", __func__);
     return -1;
   }
@@ -508,6 +508,16 @@ static void halWrapperCallback(uint8_t event, uint8_t event_status) {
   uint8_t propNfcModeSetCmdOn[] = {0x2f, 0x02, 0x02, 0x02, 0x01};
 
   switch (mHalWrapperState) {
+    case HAL_WRAPPER_STATE_CLOSING:
+      if (event == HAL_WRAPPER_TIMEOUT_EVT) {
+        STLOG_HAL_D("NFC-NCI HAL: %s  Timeout. Close anyway", __func__);
+        HalSendDownstreamStopTimer(mHalHandle);
+        hal_fd_close();
+        mHalWrapperState = HAL_WRAPPER_STATE_CLOSED;
+        return;
+      }
+      break;
+
     case HAL_WRAPPER_STATE_CLOSED:
       if (event == HAL_WRAPPER_TIMEOUT_EVT) {
         STLOG_HAL_D("NFC-NCI HAL: %s  Timeout. Close anyway", __func__);
