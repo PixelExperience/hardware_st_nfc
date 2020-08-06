@@ -104,6 +104,7 @@ static void* I2cWorkerThread(void* arg) {
       STLOG_HAL_V("echo thread wakeup from chip...\n");
 
       uint8_t buffer[300];
+      int count = 0;
 
       do {
         // load first four bytes:
@@ -159,8 +160,8 @@ static void* I2cWorkerThread(void* arg) {
         readOk = false;
         memset(buffer, 0xca, sizeof(buffer));
 
-        /* read while we have data available */
-      } while (i2cGetGPIOState(fidI2c) == 1);
+        /* read while we have data available, up to 2 times then allow writes */
+      } while ((i2cGetGPIOState(fidI2c) == 1) && (count++ < 2));
     }
 
     if (event_table[1].revents & POLLIN) {
