@@ -313,6 +313,11 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
       else if ((p_data[0] == 0x60) && (p_data[1] == 0x00)) {
         // Stop timer
         HalSendDownstreamStopTimer(mHalHandle);
+        if (forceRecover == true) {
+          forceRecover = false;
+          mHalWrapperDataCallback(data_len, p_data);
+          break;
+        }
 
         // Send CORE_INIT_CMD
         STLOG_HAL_V("%s - Sending CORE_INIT_CMD", __func__);
@@ -463,9 +468,6 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
           }
         }
         mHalWrapperDataCallback(data_len, p_data);
-      } else if (forceRecover == true) {
-        forceRecover = false;
-        mHalWrapperDataCallback(data_len, p_data);
       } else {
         STLOG_HAL_V("%s - Core reset notification - Nfc mode ", __func__);
       }
@@ -503,9 +505,8 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
   }
 }
 
-static void halWrapperCallback(uint8_t event, uint8_t event_status) {
+static void halWrapperCallback(uint8_t event, __attribute__((unused))uint8_t event_status) {
   uint8_t coreInitCmd[] = {0x20, 0x01, 0x02, 0x00, 0x00};
-  uint8_t propNfcModeSetCmdOn[] = {0x2f, 0x02, 0x02, 0x02, 0x01};
 
   switch (mHalWrapperState) {
     case HAL_WRAPPER_STATE_CLOSING:
@@ -565,10 +566,10 @@ static void halWrapperCallback(uint8_t event, uint8_t event_status) {
           HalSendDownstreamStopTimer(mHalHandle);
           mTimerStarted = false;
           forceRecover = true;
-          if (!HalSendDownstream(mHalHandle, propNfcModeSetCmdOn,
-                                 sizeof(propNfcModeSetCmdOn))) {
-            STLOG_HAL_E("NFC-NCI HAL: %s  SendDownstream failed", __func__);
-          }
+          resetHandlerState();
+          I2cResetPulse();
+          mHalWrapperState = HAL_WRAPPER_STATE_OPEN;
+
         }
         return;
       }
