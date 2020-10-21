@@ -65,6 +65,8 @@ static const uint8_t nciHeaderPropSetConfig[9] = {0x2F, 0x02, 0x98, 0x04, 0x00,
 static uint8_t nciPropEnableFwDbgTraces[256];
 static uint8_t nciPropGetFwDbgTracesConfig[] = {0x2F, 0x02, 0x05, 0x03,
                                                 0x00, 0x14, 0x01, 0x00};
+static bool isDebuggable;
+
 bool mReadFwConfigDone = false;
 
 bool mHciCreditLent = false;
@@ -116,6 +118,7 @@ bool hal_wrapper_open(st21nfc_dev_t* dev, nfc_stack_callback_t* p_cback,
     return -1;  // We are doomed, stop it here, NOW !
   }
 
+  isDebuggable = property_get_int32("ro.debuggable", 0);
   mHalHandle = *pHandle;
 
   return 1;
@@ -374,9 +377,13 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
           // NFC_STATUS_OK
           if (p_data[3] == 0x00) {
             bool confNeeded = false;
+            bool firmware_debug_enabled =
+                property_get_int32("persist.vendor.nfc.firmware_debug_enabled", 0);
 
             // Check if FW DBG shall be set
-            if (GetNumValue(NAME_STNFC_FW_DEBUG_ENABLED, &num, sizeof(num))) {
+            if (GetNumValue(NAME_STNFC_FW_DEBUG_ENABLED, &num, sizeof(num)) ||
+                isDebuggable) {
+              if (firmware_debug_enabled) num = 1;
               // If conf file indicate set needed and not yet enabled
               if ((num == 1) && (p_data[7] == 0x00)) {
                 STLOG_HAL_D("%s - FW DBG traces enabling needed", __func__);
