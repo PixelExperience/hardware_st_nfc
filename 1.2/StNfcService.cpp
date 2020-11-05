@@ -41,7 +41,8 @@ int main() {
   sp<INfc> nfc_service = new Nfc();
 
   char valueStr[PROPERTY_VALUE_MAX] = {0};
-  int len = property_get("persist.vendor.modem.esim.reset", valueStr, "");
+  //Running streset after factory data reset
+  int len = property_get("persist.vendor.modem.esim.reset", valueStr, "needed");
   if (len > 0) {
     if (strncmp(valueStr,"needed", 6) == 0) {
       void* stdll = dlopen("/vendor/lib64/libstreset.so", RTLD_NOW);
