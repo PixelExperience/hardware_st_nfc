@@ -34,6 +34,7 @@
 #include "android_logmsg.h"
 #include "halcore.h"
 #include "halcore_private.h"
+#include "hal_config.h"
 
 #define ST21NFC_MAGIC 0xEA
 
@@ -229,11 +230,19 @@ int I2cWriteCmd(const uint8_t* x, size_t len) {
  */
 bool I2cOpenLayer(void* dev, HAL_CALLBACK callb, HALHANDLE* pHandle) {
   uint32_t NoDbgFlag = HAL_FLAG_DEBUG;
+  char nfc_dev_node[64];
 
+  /*Read device node path*/
+  if (!GetStrValue(NAME_ST_NFC_DEV_NODE, (char *)nfc_dev_node,
+                   sizeof(nfc_dev_node))) {
+    STLOG_HAL_D("Open /dev/st21nfc\n");
+    strcpy(nfc_dev_node, "/dev/st21nfc");
+  }
   (void)pthread_mutex_lock(&i2ctransport_mtx);
-  fidI2c = open("/dev/st21nfc", O_RDWR);
+
+  fidI2c = open(nfc_dev_node, O_RDWR);
   if (fidI2c < 0) {
-    STLOG_HAL_W("unable to open /dev/st21nfc  (%s) \n", strerror(errno));
+    STLOG_HAL_W("unable to open %s (%s) \n", nfc_dev_node, strerror(errno));
     (void)pthread_mutex_unlock(&i2ctransport_mtx);
     return false;
   }
