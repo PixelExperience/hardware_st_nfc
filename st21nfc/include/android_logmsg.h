@@ -104,6 +104,8 @@ unsigned char InitializeSTLogLevel();
 
 void DispHal(const char* title, const void* data, size_t length);
 
+void deInitializeHalLog();
+
 #ifdef __cplusplus
 };
 #endif
