@@ -20,6 +20,7 @@
 #include <cutils/properties.h>
 #include <errno.h>
 #include <hardware/nfc.h>
+#include <log/log.h>
 #include <string.h>
 #include <unistd.h>
 #include "android_logmsg.h"
@@ -395,6 +396,14 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
               } else {
                 STLOG_HAL_D("%s - No changes in FW DBG traces config needed",
                             __func__);
+              }
+
+              if (data_len < 9 || p_data[6] == 0 || p_data[6] < (data_len - 7)
+                  || p_data[6] > (sizeof(nciPropEnableFwDbgTraces) - 9)) {
+                if (confNeeded) {
+                  android_errorWriteLog(0x534e4554, "169328517");
+                  confNeeded = false;
+                }
               }
 
               if (confNeeded) {
