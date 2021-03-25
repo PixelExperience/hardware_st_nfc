@@ -393,7 +393,8 @@ int StNfc_hal_close(int nfc_mode_value) {
       STLOG_HAL_D("STReset Cold reset");
       STEseReset fn = (STEseReset)dlsym(stdll, "cold_reset");
       if (fn) {
-        STLOG_HAL_D("STReset Result=%d", fn());
+        int ret = fn();
+        STLOG_HAL_D("STReset Result=%d", ret);
       }
     } else {
       STLOG_HAL_D("%s not found, do nothing.", valueStr.c_str());
