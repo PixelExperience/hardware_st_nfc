@@ -53,7 +53,8 @@ int main() {
       ALOGD("STReset Start");
       STEseReset fn = (STEseReset)dlsym(stdll, "boot_reset");
       if (fn) {
-        ALOGD("STReset Result=%d", fn());
+        int ret = fn();
+        ALOGD("STReset Result=%d", ret);
       }
     } else {
       ALOGE("%s not found, do nothing.", valueStr.c_str());
