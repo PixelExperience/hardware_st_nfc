@@ -44,6 +44,9 @@
 #define ST21NFC_SET_POLARITY_FALLING _IOR(ST21NFC_MAGIC, 0x04, unsigned int)
 #define ST21NFC_SET_POLARITY_HIGH _IOR(ST21NFC_MAGIC, 0x05, unsigned int)
 #define ST21NFC_SET_POLARITY_LOW _IOR(ST21NFC_MAGIC, 0x06, unsigned int)
+#define ST21NFC_CLK_ENABLE _IOR(ST21NFC_MAGIC, 0x11, unsigned int)
+#define ST21NFC_CLK_DISABLE _IOR(ST21NFC_MAGIC, 0x12, unsigned int)
+#define ST21NFC_CLK_STATE _IOR(ST21NFC_MAGIC, 0x13, unsigned int)
 
 #define LINUX_DBGBUFFER_SIZE 300
 
@@ -53,6 +56,8 @@ static int cmdPipe[2] = {0, 0};
 static struct pollfd event_table[2];
 static pthread_t threadHandle = (pthread_t)NULL;
 pthread_mutex_t i2ctransport_mtx = PTHREAD_MUTEX_INITIALIZER;
+
+unsigned long hal_ctrl_clk = 0;
 
 /**************************************************************************************************
  *
@@ -247,6 +252,15 @@ bool I2cOpenLayer(void* dev, HAL_CALLBACK callb, HALHANDLE* pHandle) {
     return false;
   }
 
+  GetNumValue(NAME_STNFC_CONTROL_CLK, &hal_ctrl_clk, sizeof(hal_ctrl_clk));
+
+  if (hal_ctrl_clk) {
+    if (ioctl(fidI2c, ST21NFC_CLK_DISABLE, NULL) < 0) {
+      char msg[LINUX_DBGBUFFER_SIZE];
+      strerror_r(errno, msg, LINUX_DBGBUFFER_SIZE);
+      STLOG_HAL_E("ST21NFC_CLK_DISABLE failed errno %d(%s)", errno, msg);
+    }
+  }
   i2cSetPolarity(fidI2c, false, false);
   i2cResetPulse(fidI2c);
 
@@ -369,13 +383,51 @@ static int i2cWrite(int fid, const uint8_t* pvBuffer, int length) {
   int retries = 0;
   int result = 0;
   int halfsecs = 0;
+  int clk_state = -1;
+  char msg[LINUX_DBGBUFFER_SIZE];
+
+  if (hal_ctrl_clk && length >= 4 && pvBuffer[0] == 0x20 &&
+      pvBuffer[1] == 0x09) {
+    if (0 > (clk_state = ioctl(fid, ST21NFC_CLK_STATE, NULL))) {
+      strerror_r(errno, msg, LINUX_DBGBUFFER_SIZE);
+      STLOG_HAL_E("ST21NFC_CLK_STATE failed errno %d(%s)", errno, msg);
+      clk_state = -1;
+    }
+    STLOG_HAL_D("ST21NFC_CLK_STATE = %d", clk_state);
+    if (clk_state == 1 && (pvBuffer[3] == 0x01 || pvBuffer[3] == 0x03)) {
+      // screen off cases
+      if (ioctl(fid, ST21NFC_CLK_DISABLE, NULL) < 0) {
+        strerror_r(errno, msg, LINUX_DBGBUFFER_SIZE);
+        STLOG_HAL_E("ST21NFC_CLK_DISABLE failed errno %d(%s)", errno, msg);
+      } else if (0 > (clk_state = ioctl(fid, ST21NFC_CLK_STATE, NULL))) {
+        strerror_r(errno, msg, LINUX_DBGBUFFER_SIZE);
+        STLOG_HAL_E("ST21NFC_CLK_STATE failed errno %d(%s)", errno, msg);
+        clk_state = -1;
+      }
+      if (clk_state != 0) {
+        STLOG_HAL_E("CLK_DISABLE STATE ERROR clk_state = %d", clk_state);
+      }
+    } else if (clk_state == 0 && (pvBuffer[3] == 0x02 || pvBuffer[3] == 0x00)) {
+      // screen on cases
+      if (ioctl(fid, ST21NFC_CLK_ENABLE, NULL) < 0) {
+        strerror_r(errno, msg, LINUX_DBGBUFFER_SIZE);
+        STLOG_HAL_E("ST21NFC_CLK_ENABLE failed errno %d(%s)", errno, msg);
+      } else if (0 > (clk_state = ioctl(fid, ST21NFC_CLK_STATE, NULL))) {
+        strerror_r(errno, msg, LINUX_DBGBUFFER_SIZE);
+        STLOG_HAL_E("ST21NFC_CLK_STATE failed errno %d(%s)", errno, msg);
+        clk_state = -1;
+      }
+      if (clk_state != 1) {
+        STLOG_HAL_E("CLK_ENABLE STATE ERROR clk_state = %d", clk_state);
+      }
+    }
+  }
 
 redo:
   while (retries < 3) {
     result = write(fid, pvBuffer, length);
 
     if (result < 0) {
-      char msg[LINUX_DBGBUFFER_SIZE];
 
       strerror_r(errno, msg, LINUX_DBGBUFFER_SIZE);
       STLOG_HAL_W("! i2cWrite!!, errno is '%s'", msg);
