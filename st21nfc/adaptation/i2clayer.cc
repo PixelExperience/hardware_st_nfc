@@ -52,8 +52,9 @@
 
 static int fidI2c = 0;
 static int cmdPipe[2] = {0, 0};
+static int notifyResetRequest = 0;
 
-static struct pollfd event_table[2];
+static struct pollfd event_table[3];
 static pthread_t threadHandle = (pthread_t)NULL;
 pthread_mutex_t i2ctransport_mtx = PTHREAD_MUTEX_INITIALIZER;
 
@@ -87,6 +88,8 @@ static void* I2cWorkerThread(void* arg) {
   HALHANDLE hHAL = (HALHANDLE)arg;
   STLOG_HAL_D("echo thread started...\n");
   bool readOk = false;
+  int eventNum = (notifyResetRequest < 0) ? 2 : 3;
+  bool reseting = false;
 
   do {
     event_table[0].fd = fidI2c;
@@ -97,9 +100,13 @@ static void* I2cWorkerThread(void* arg) {
     event_table[1].events = POLLIN;
     event_table[1].revents = 0;
 
+    event_table[2].fd = notifyResetRequest;
+    event_table[2].events = POLLPRI;
+    event_table[2].revents = 0;
+
     STLOG_HAL_V("echo thread go to sleep...\n");
 
-    int poll_status = poll(event_table, 2, -1);
+    int poll_status = poll(event_table, eventNum, -1);
 
     if (-1 == poll_status) {
       STLOG_HAL_E("error in poll call\n");
@@ -205,11 +212,28 @@ static void* I2cWorkerThread(void* arg) {
       }
     }
 
+    if (event_table[2].revents & POLLPRI && eventNum > 2) {
+      STLOG_HAL_W("thread received reset request command.. \n");
+      char reset[10];
+      int byte;
+      reset[9] = '\0';
+      lseek(notifyResetRequest, 0, SEEK_SET);
+      byte = read(notifyResetRequest, &reset, sizeof(reset));
+      if (byte < 10) {
+        reset[byte] = '\0';
+      }
+      if (byte > 0 && reset[0] =='1' && reseting == false) {
+        STLOG_HAL_E("trigger NFCC reset.. \n");
+        reseting = true;
+        i2cResetPulse(fidI2c);
+      }
+    }
   } while (!closeThread);
 
   close(fidI2c);
   close(cmdPipe[0]);
   close(cmdPipe[1]);
+  close(notifyResetRequest);
 
   HalDestroy(hHAL);
   STLOG_HAL_D("thread exit\n");
@@ -236,6 +260,7 @@ int I2cWriteCmd(const uint8_t* x, size_t len) {
 bool I2cOpenLayer(void* dev, HAL_CALLBACK callb, HALHANDLE* pHandle) {
   uint32_t NoDbgFlag = HAL_FLAG_DEBUG;
   char nfc_dev_node[64];
+  char nfc_reset_req_node[128];
 
   /*Read device node path*/
   if (!GetStrValue(NAME_ST_NFC_DEV_NODE, (char *)nfc_dev_node,
@@ -243,6 +268,16 @@ bool I2cOpenLayer(void* dev, HAL_CALLBACK callb, HALHANDLE* pHandle) {
     STLOG_HAL_D("Open /dev/st21nfc\n");
     strcpy(nfc_dev_node, "/dev/st21nfc");
   }
+  /*Read nfcc reset request sysfs*/
+  if (GetStrValue(NAME_ST_NFC_RESET_REQ_SYSFS, (char *)nfc_reset_req_node,
+                  sizeof(nfc_reset_req_node))) {
+    STLOG_HAL_D("Open %s\n", nfc_reset_req_node);
+    notifyResetRequest = open(nfc_reset_req_node, O_RDONLY);
+    if (notifyResetRequest < 0) {
+      STLOG_HAL_E("unable to open %s (%s) \n", nfc_reset_req_node, strerror(errno));
+    }
+  }
+
   (void)pthread_mutex_lock(&i2ctransport_mtx);
 
   fidI2c = open(nfc_dev_node, O_RDWR);
