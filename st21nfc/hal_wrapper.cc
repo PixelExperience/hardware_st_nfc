@@ -281,6 +281,13 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
               STLOG_HAL_E("%s - SendDownstream failed", __func__);
             }
             mHalWrapperState = HAL_WRAPPER_STATE_APPLY_CUSTOM_PARAM;
+          } else if ((mFwUpdateTaskMask & UWB_CONF_UPDATE_NEEDED) &&
+                     (mFwUpdateResMask & FW_UWB_PARAM_AVAILABLE)) {
+            if (!HalSendDownstream(mHalHandle, coreResetCmd,
+                                   sizeof(coreResetCmd))) {
+              STLOG_HAL_E("%s - SendDownstream failed", __func__);
+            }
+            mHalWrapperState = HAL_WRAPPER_STATE_APPLY_UWB_PARAM;
           }
         }
       } else {
@@ -516,6 +523,11 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
           "%s - mHalWrapperState = HAL_WRAPPER_STATE_APPLY_CUSTOM_PARAM",
           __func__);
       ApplyCustomParamHandler(mHalHandle, data_len, p_data);
+      break;
+    case HAL_WRAPPER_STATE_APPLY_UWB_PARAM:  // 9
+      STLOG_HAL_V("%s - mHalWrapperState = HAL_WRAPPER_STATE_APPLY_UWB_PARAM",
+                  __func__);
+      ApplyUwbParamHandler(mHalHandle, data_len, p_data);
       break;
   }
 }
