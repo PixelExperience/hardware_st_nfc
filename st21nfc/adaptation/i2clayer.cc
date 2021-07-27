@@ -88,7 +88,7 @@ static void* I2cWorkerThread(void* arg) {
   HALHANDLE hHAL = (HALHANDLE)arg;
   STLOG_HAL_D("echo thread started...\n");
   bool readOk = false;
-  int eventNum = (notifyResetRequest < 0) ? 2 : 3;
+  int eventNum = (notifyResetRequest <= 0) ? 2 : 3;
   bool reseting = false;
 
   do {
@@ -233,7 +233,9 @@ static void* I2cWorkerThread(void* arg) {
   close(fidI2c);
   close(cmdPipe[0]);
   close(cmdPipe[1]);
-  close(notifyResetRequest);
+  if (notifyResetRequest > 0) {
+    close(notifyResetRequest);
+  }
 
   HalDestroy(hHAL);
   STLOG_HAL_D("thread exit\n");
