@@ -529,6 +529,21 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
                   __func__);
       ApplyUwbParamHandler(mHalHandle, data_len, p_data);
       break;
+    case HAL_WRAPPER_STATE_SET_ACTIVERW_TIMER:  // 10
+      if (mIsActiveRW == true) {
+        STLOG_HAL_V(
+            "%s - mHalWrapperState = "
+            "HAL_WRAPPER_STATE_SET_ACTIVERW_TIMER",
+            __func__);
+        // start timer
+        mTimerStarted = true;
+        HalSendDownstreamTimer(mHalHandle, 5000);
+        // Chip state should back to Active
+        // at screen off state.
+      }
+      mHalWrapperState = HAL_WRAPPER_STATE_READY;
+      mHalWrapperDataCallback(data_len, p_data);
+      break;
   }
 }
 
@@ -589,7 +604,8 @@ static void halWrapperCallback(uint8_t event, __attribute__((unused))uint8_t eve
     case HAL_WRAPPER_STATE_READY:
       if (event == HAL_WRAPPER_TIMEOUT_EVT) {
         if (mTimerStarted) {
-          STLOG_HAL_D("NFC-NCI HAL: %s  Timeout.. Recover", __func__);
+          STLOG_HAL_E("NFC-NCI HAL: %s  Timeout.. Recover", __func__);
+          STLOG_HAL_E("%s mIsActiveRW = %d", __func__, mIsActiveRW);
           HalSendDownstreamStopTimer(mHalHandle);
           mTimerStarted = false;
           forceRecover = true;
