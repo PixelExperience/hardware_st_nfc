@@ -51,6 +51,7 @@ extern int GetStrValue(const char* name, char* pValue, unsigned long l);
 #define NAME_CORE_CONF_PROP "CORE_CONF_PROP"
 #define NAME_STNFC_CONTROL_CLK "STNFC_CONTROL_CLK"
 #define NAME_STNFC_UWB_LIB_NAME "STNFC_UWB_LIB_NAME"
+#define NAME_STNFC_ACTIVERW_TIMER "STNFC_ACTIVERW_TIMER"
 
 /* #######################
  * Set the logging level
