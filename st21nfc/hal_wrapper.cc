@@ -389,8 +389,9 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
                 property_get_int32("persist.vendor.nfc.firmware_debug_enabled", 0);
 
             // Check if FW DBG shall be set
-            if (GetNumValue(NAME_STNFC_FW_DEBUG_ENABLED, &num, sizeof(num))) {
-              if (firmware_debug_enabled && isDebuggable) num = 1;
+            if (GetNumValue(NAME_STNFC_FW_DEBUG_ENABLED, &num, sizeof(num)) ||
+                isDebuggable) {
+              if (firmware_debug_enabled) num = 1;
               // If conf file indicate set needed and not yet enabled
               if ((num == 1) && (p_data[7] == 0x00)) {
                 STLOG_HAL_D("%s - FW DBG traces enabling needed", __func__);
