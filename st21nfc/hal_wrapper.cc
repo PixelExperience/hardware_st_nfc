@@ -31,6 +31,7 @@ extern void HalCoreCallback(void* context, uint32_t event, const void* d,
                             size_t length);
 extern bool I2cOpenLayer(void* dev, HAL_CALLBACK callb, HALHANDLE* pHandle);
 extern void I2cCloseLayer();
+extern void I2cRecovery();
 
 typedef struct {
   struct nfc_nci_device nci_device;  // nci_device must be first struct member
@@ -121,6 +122,8 @@ bool hal_wrapper_open(st21nfc_dev_t* dev, nfc_stack_callback_t* p_cback,
 
   isDebuggable = property_get_int32("ro.debuggable", 0);
   mHalHandle = *pHandle;
+
+  HalSendDownstreamTimer(mHalHandle, 10000);
 
   return 1;
 }
@@ -568,6 +571,15 @@ static void halWrapperCallback(uint8_t event, __attribute__((unused))uint8_t eve
         HalSendDownstreamStopTimer(mHalHandle);
         hal_fd_close();
         mHalWrapperState = HAL_WRAPPER_STATE_CLOSED;
+        return;
+      }
+      break;
+
+    case HAL_WRAPPER_STATE_OPEN:
+      if (event == HAL_WRAPPER_TIMEOUT_EVT) {
+        STLOG_HAL_D("NFC-NCI HAL: %s  Timeout accessing the CLF.", __func__);
+        HalSendDownstreamStopTimer(mHalHandle);
+        I2cRecovery();
         return;
       }
       break;
