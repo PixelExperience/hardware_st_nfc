@@ -367,7 +367,7 @@ int StNfc_hal_close(int nfc_mode_value) {
     (void)pthread_mutex_unlock(&hal_mtx);
     return 1;
   }
-  if (hal_wrapper_close(1, nfc_mode_value) == 0) {
+  if (hal_wrapper_close(1, nfc_mode_value) == -1) {
     hal_is_closed = 1;
     (void)pthread_mutex_unlock(&hal_mtx);
     return 1;
