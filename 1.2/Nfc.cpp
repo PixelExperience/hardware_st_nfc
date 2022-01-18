@@ -44,11 +44,8 @@ Return<V1_0::NfcStatus> Nfc::open_1_1(
     ALOGD_IF(nfc_debug_enabled,"Nfc::open null callback");
     return V1_0::NfcStatus::FAILED;
   } else {
-    pthread_mutex_lock(&mLockOpenClose);
-    mOpenCount++;
     mCallbackV1_1 = clientCallback;
-    mCallbackV1_1->linkToDeath(this, mOpenCount /*cookie*/);
-    pthread_mutex_unlock(&mLockOpenClose);
+    mCallbackV1_1->linkToDeath(this, 0 /*cookie*/);
   }
   return open(clientCallback);
 }
@@ -57,20 +54,16 @@ Return<V1_0::NfcStatus> Nfc::open_1_1(
 Return<V1_0::NfcStatus> Nfc::open(
     const sp<V1_0::INfcClientCallback>& clientCallback) {
   ALOGD_IF(nfc_debug_enabled, "Nfc::open Enter");
-  pthread_mutex_lock(&mLockOpenClose);
-  if (mCallbackV1_1 == nullptr) mOpenCount++;
   if (clientCallback == nullptr) {
     ALOGD_IF(nfc_debug_enabled, "Nfc::open null callback");
-    pthread_mutex_unlock(&mLockOpenClose);
     return V1_0::NfcStatus::FAILED;
   } else {
     mCallbackV1_0 = clientCallback;
-    mCallbackV1_0->linkToDeath(this, mOpenCount /*cookie*/);
+    mCallbackV1_0->linkToDeath(this, 0 /*cookie*/);
   }
 
   int ret = StNfc_hal_open(eventCallback, dataCallback);
-  ALOGD_IF(nfc_debug_enabled, "Nfc::open Exit (count:%ld)", mOpenCount);
-  pthread_mutex_unlock(&mLockOpenClose);
+  ALOGD_IF(nfc_debug_enabled, "Nfc::open Exit");
   return ret == 0 ? V1_0::NfcStatus::OK : V1_0::NfcStatus::FAILED;
 }
 
@@ -97,7 +90,9 @@ Return<V1_0::NfcStatus> Nfc::prediscover() {
 }
 
 Return<V1_0::NfcStatus> Nfc::close() {
-  pthread_mutex_lock(&mLockOpenClose);
+  if (mCallbackV1_1 == nullptr && mCallbackV1_0 == nullptr) {
+    return V1_0::NfcStatus::FAILED;
+  }
   int ret = StNfc_hal_close(NFC_MODE_OFF);
 
   if (mCallbackV1_1 != nullptr) {
@@ -108,7 +103,6 @@ Return<V1_0::NfcStatus> Nfc::close() {
     mCallbackV1_0->unlinkToDeath(this);
     mCallbackV1_0 = nullptr;
   }
-  pthread_mutex_unlock(&mLockOpenClose);
   return ret == 0 ? V1_0::NfcStatus::OK : V1_0::NfcStatus::FAILED;
 }
 
@@ -133,7 +127,6 @@ Return<V1_0::NfcStatus> Nfc::closeForPowerOffCase() {
     return V1_0::NfcStatus::FAILED;
   }
 
-  pthread_mutex_lock(&mLockOpenClose);
   int ret = StNfc_hal_closeForPowerOffCase();
 
   if (mCallbackV1_1 != nullptr) {
@@ -144,7 +137,6 @@ Return<V1_0::NfcStatus> Nfc::closeForPowerOffCase() {
     mCallbackV1_0->unlinkToDeath(this);
     mCallbackV1_0 = nullptr;
   }
-  pthread_mutex_unlock(&mLockOpenClose);
   return ret == 0 ? V1_0::NfcStatus::OK : V1_0::NfcStatus::FAILED;
 }
 
