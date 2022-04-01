@@ -141,7 +141,6 @@ void OnDeath(void* cookie) {
 }
 
 ::ndk::ScopedAStatus Nfc::preDiscover() {
-  LOG(INFO) << "preDiscover";
   if (Nfc::mCallback == nullptr) {
     LOG(ERROR) << __func__ << "mCallback null";
     return ndk::ScopedAStatus::fromServiceSpecificError(
@@ -155,7 +154,6 @@ void OnDeath(void* cookie) {
 
 ::ndk::ScopedAStatus Nfc::write(const std::vector<uint8_t>& data,
                                 int32_t* _aidl_return) {
-  LOG(INFO) << "write";
   if (Nfc::mCallback == nullptr) {
     LOG(ERROR) << __func__ << "mCallback null";
     return ndk::ScopedAStatus::fromServiceSpecificError(
