@@ -29,6 +29,7 @@
 #include "android_logmsg.h"
 #include "hal_config.h"
 #include "halcore.h"
+#include "st21nfc_dev.h"
 
 #define VENDOR_LIB_PATH "/vendor/lib64/"
 #define VENDOR_LIB_EXT ".so"
@@ -40,14 +41,6 @@ extern void HalCoreCallback(void* context, uint32_t event, const void* d,
 extern bool I2cOpenLayer(void* dev, HAL_CALLBACK callb, HALHANDLE* pHandle);
 
 typedef int (*STEseReset)(void);
-
-typedef struct {
-  // below declarations are private variables within HAL
-  nfc_stack_callback_t* p_cback;
-  nfc_stack_data_callback_t* p_data_cback;
-  HALHANDLE hHAL;
-  nfc_stack_callback_t* p_cback_unwrap;
-} st21nfc_dev_t;
 
 const char* halVersion = "ST21NFC AIDL Version 1.0.0";
 
