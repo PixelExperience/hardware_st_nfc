@@ -23,23 +23,17 @@
 #include <log/log.h>
 #include <string.h>
 #include <unistd.h>
+
 #include "android_logmsg.h"
 #include "hal_fd.h"
 #include "halcore.h"
+#include "st21nfc_dev.h"
 
 extern void HalCoreCallback(void* context, uint32_t event, const void* d,
                             size_t length);
 extern bool I2cOpenLayer(void* dev, HAL_CALLBACK callb, HALHANDLE* pHandle);
 extern void I2cCloseLayer();
 extern void I2cRecovery();
-
-typedef struct {
-  struct nfc_nci_device nci_device;  // nci_device must be first struct member
-  // below declarations are private variables within HAL
-  nfc_stack_callback_t* p_cback;
-  nfc_stack_data_callback_t* p_data_cback;
-  HALHANDLE hHAL;
-} st21nfc_dev_t;
 
 static void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data);
 static void halWrapperCallback(uint8_t event, uint8_t event_status);
