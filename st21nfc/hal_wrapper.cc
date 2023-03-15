@@ -524,16 +524,33 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
             HalSendDownstreamStopTimer(mHalHandle);
             mTimerStarted = false;
           }
-        } else if ((p_data[0] == 0x60) && (p_data[1] == 0x07) && (p_data[3] == 0xE1)) {
-          // Core Generic Error - Buffer Overflow Ntf - Restart all
-          STLOG_HAL_E("Core Generic Error - restart");
-          p_data[0] = 0x60;
-          p_data[1] = 0x00;
-          p_data[2] = 0x03;
-          p_data[3] = 0xE1;
-          p_data[4] = 0x00;
-          p_data[5] = 0x00;
-          data_len = 0x6;
+        } else if (data_len >= 4 && p_data[0] == 0x60 && p_data[1] == 0x07) {
+          if (p_data[3] == 0xE1) {
+            // Core Generic Error - Buffer Overflow Ntf - Restart all
+            STLOG_HAL_E("Core Generic Error - restart");
+            p_data[0] = 0x60;
+            p_data[1] = 0x00;
+            p_data[2] = 0x03;
+            p_data[3] = 0xE1;
+            p_data[4] = 0x00;
+            p_data[5] = 0x00;
+            data_len = 0x6;
+          } else if (p_data[3] == 0xE6) {
+            unsigned long hal_ctrl_clk = 0;
+            GetNumValue(NAME_STNFC_CONTROL_CLK, &hal_ctrl_clk,
+                        sizeof(hal_ctrl_clk));
+            if (hal_ctrl_clk) {
+              STLOG_HAL_E("%s - Clock Error - restart", __func__);
+              // Core Generic Error
+              p_data[0] = 0x60;
+              p_data[1] = 0x00;
+              p_data[2] = 0x03;
+              p_data[3] = 0xE6;
+              p_data[4] = 0x00;
+              p_data[5] = 0x00;
+              data_len = 0x6;
+            }
+          }
         }
         mHalWrapperDataCallback(data_len, p_data);
       } else {
