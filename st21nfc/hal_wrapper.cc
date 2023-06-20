@@ -51,6 +51,7 @@ uint8_t* ConfigBuffer = NULL;
 uint8_t mError_count = 0;
 bool mIsActiveRW = false;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex_activerw = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t ready_cond = PTHREAD_COND_INITIALIZER;
 
 static const uint8_t ApduGetAtr[] = {0x2F, 0x04, 0x05, 0x80,
@@ -213,6 +214,7 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
       STLOG_HAL_V("%s - mHalWrapperState = HAL_WRAPPER_STATE_OPEN", __func__);
 
       if ((p_data[0] == 0x60) && (p_data[1] == 0x00)) {
+        mIsActiveRW = false;
         mFwUpdateTaskMask = ft_cmd_HwReset(p_data, &mClfMode);
 
         if (mfactoryReset == true) {
@@ -488,11 +490,14 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
             }
           }
         } else if ((p_data[0] == 0x6f) && (p_data[1] == 0x05)) {
+          (void)pthread_mutex_lock(&mutex_activerw);
           // start timer
           mTimerStarted = true;
           HalSendDownstreamTimer(mHalHandle, 5000);
           mIsActiveRW = true;
+          (void)pthread_mutex_unlock(&mutex_activerw);
         } else if ((p_data[0] == 0x6f) && (p_data[1] == 0x06)) {
+          (void)pthread_mutex_lock(&mutex_activerw);
           // stop timer
           if (mTimerStarted) {
             HalSendDownstreamStopTimer(mHalHandle);
@@ -510,6 +515,7 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
               HalSendDownstreamTimer(mHalHandle, 1);
             }
           }
+          (void)pthread_mutex_unlock(&mutex_activerw);
         } else if (((p_data[0] == 0x61) && (p_data[1] == 0x05)) ||
                    ((p_data[0] == 0x61) && (p_data[1] == 0x03))) {
           mError_count = 0;
@@ -518,16 +524,33 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
             HalSendDownstreamStopTimer(mHalHandle);
             mTimerStarted = false;
           }
-        } else if ((p_data[0] == 0x60) && (p_data[1] == 0x07) && (p_data[3] == 0xE1)) {
-          // Core Generic Error - Buffer Overflow Ntf - Restart all
-          STLOG_HAL_E("Core Generic Error - restart");
-          p_data[0] = 0x60;
-          p_data[1] = 0x00;
-          p_data[2] = 0x03;
-          p_data[3] = 0xE1;
-          p_data[4] = 0x00;
-          p_data[5] = 0x00;
-          data_len = 0x6;
+        } else if (data_len >= 4 && p_data[0] == 0x60 && p_data[1] == 0x07) {
+          if (p_data[3] == 0xE1) {
+            // Core Generic Error - Buffer Overflow Ntf - Restart all
+            STLOG_HAL_E("Core Generic Error - restart");
+            p_data[0] = 0x60;
+            p_data[1] = 0x00;
+            p_data[2] = 0x03;
+            p_data[3] = 0xE1;
+            p_data[4] = 0x00;
+            p_data[5] = 0x00;
+            data_len = 0x6;
+          } else if (p_data[3] == 0xE6) {
+            unsigned long hal_ctrl_clk = 0;
+            GetNumValue(NAME_STNFC_CONTROL_CLK, &hal_ctrl_clk,
+                        sizeof(hal_ctrl_clk));
+            if (hal_ctrl_clk) {
+              STLOG_HAL_E("%s - Clock Error - restart", __func__);
+              // Core Generic Error
+              p_data[0] = 0x60;
+              p_data[1] = 0x00;
+              p_data[2] = 0x03;
+              p_data[3] = 0xE6;
+              p_data[4] = 0x00;
+              p_data[5] = 0x00;
+              data_len = 0x6;
+            }
+          }
         }
         mHalWrapperDataCallback(data_len, p_data);
       } else {
@@ -570,8 +593,9 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
       ApplyUwbParamHandler(mHalHandle, data_len, p_data);
       break;
     case HAL_WRAPPER_STATE_SET_ACTIVERW_TIMER:  // 10
+      (void)pthread_mutex_lock(&mutex_activerw);
       if (mIsActiveRW == true) {
-        STLOG_HAL_V(
+        STLOG_HAL_D(
             "%s - mHalWrapperState = "
             "HAL_WRAPPER_STATE_SET_ACTIVERW_TIMER",
             __func__);
@@ -581,6 +605,7 @@ void halWrapperDataCallback(uint16_t data_len, uint8_t* p_data) {
         // Chip state should back to Active
         // at screen off state.
       }
+      (void)pthread_mutex_unlock(&mutex_activerw);
       mHalWrapperState = HAL_WRAPPER_STATE_READY;
       mHalWrapperDataCallback(data_len, p_data);
       break;
